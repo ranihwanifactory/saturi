@@ -15,12 +15,15 @@ import {
   Home,
   AlertCircle,
   LogOut,
-  Copy
+  Copy,
+  BookOpen,
+  Bot
 } from "lucide-react";
 
 // --- Types ---
 type Region = '경상도' | '전라도' | '충청도' | '강원도' | '제주도';
 type Difficulty = '순한맛' | '중간맛' | '매운맛';
+type GameMode = 'AI' | 'BASIC';
 
 interface Question {
   question: string;
@@ -37,17 +40,286 @@ interface QuizConfig {
 type AppState = 'MENU' | 'LOADING' | 'QUIZ' | 'RESULT' | 'ERROR';
 type FeedbackType = 'CORRECT' | 'WRONG' | null;
 
+// --- Static Data ---
+const STATIC_QUESTIONS: Record<Region, Record<Difficulty, Question[]>> = {
+  '경상도': {
+    '순한맛': [
+      {
+        question: "'밥 묵었나?'에 대한 적절한 대답은?",
+        options: ["아니오, 아직 식사 전입니다.", "어.", "밥은 먹지 않았습니다.", "네, 진지 드셨습니까?"],
+        correctAnswerIndex: 1,
+        explanation: "경상도에서 '밥 묵었나?'는 단순한 안부 인사로, 친한 사이에서는 짧게 '어' 또는 '아직'으로 대답합니다."
+      },
+      {
+        question: "경상도 사투리 '파이다'의 뜻은?",
+        options: ["땅을 파다", "별로다/좋지 않다", "파가 있다", "팔이다"],
+        correctAnswerIndex: 1,
+        explanation: "'파이다'는 상태나 품질이 좋지 않다, 별로다는 뜻으로 쓰입니다. 예: '그 옷은 좀 파이다.'"
+      },
+      {
+        question: "'머라카노'의 뜻은?",
+        options: ["뭐라고 하니?", "머리카락이네", "말을 하세요", "조용히 해라"],
+        correctAnswerIndex: 0,
+        explanation: "상대방의 말이 잘 들리지 않거나 이해가 안 될 때, 또는 어이없을 때 쓰는 말입니다."
+      }
+    ],
+    '중간맛': [
+      {
+        question: "'단디 해라'의 뜻은?",
+        options: ["단단하게 해라", "제대로/확실하게 해라", "빨리 해라", "천천히 해라"],
+        correctAnswerIndex: 1,
+        explanation: "'단디'는 '단단히'에서 온 말로, 실수 없이 야무지고 확실하게 하라는 뜻입니다."
+      },
+      {
+        question: "'공가라'의 의미는?",
+        options: ["공을 차라", "물건을 밑에 받쳐라", "공평하게 해라", "숨겨라"],
+        correctAnswerIndex: 1,
+        explanation: "무거운 물건 밑에 돌이나 나무 등을 받쳐서 고정하거나 높이를 맞추라는 뜻입니다."
+      },
+      {
+        question: "다음 중 '친척'을 뜻하는 경상도 말은?",
+        options: ["가매", "살피", "일가", "남"],
+        correctAnswerIndex: 2,
+        explanation: "경상도 어르신들은 친척을 '일가' 또는 '일가친척'이라고 자주 부릅니다."
+      }
+    ],
+    '매운맛': [
+      {
+        question: "'널짜뿌다'의 뜻은?",
+        options: ["널을 뛰다", "떨어뜨리다", "넓게 펴다", "날려버리다"],
+        correctAnswerIndex: 1,
+        explanation: "실수로 물건을 아래로 떨어뜨렸을 때 '널짜뿌따'라고 합니다."
+      },
+      {
+        question: "'시그럽다'의 뜻은?",
+        options: ["시끄럽다", "시다(신맛)", "시원하다", "서글프다"],
+        correctAnswerIndex: 1,
+        explanation: "레몬처럼 맛이 실 때 '아이구 시그러버라'라고 표현합니다."
+      },
+      {
+        question: "'짜구 났다'는 무슨 뜻일까요?",
+        options: ["자국이 났다", "배가 너무 부르다", "친구가 왔다", "짜증이 났다"],
+        correctAnswerIndex: 1,
+        explanation: "음식을 너무 많이 먹어서 배가 터질 듯이 부를 때 '배에 짜구 났다'고 합니다."
+      }
+    ]
+  },
+  '전라도': {
+    '순한맛': [
+      {
+        question: "'아따'의 쓰임새로 적절하지 않은 것은?",
+        options: ["감탄사", "추임새", "부정의 의미", "형 이름"],
+        correctAnswerIndex: 3,
+        explanation: "'아따'는 상황에 따라 기쁨, 짜증, 답답함 등 다양한 감정을 표현하는 만능 감탄사입니다."
+      },
+      {
+        question: "'거시기'의 뜻은?",
+        options: ["그것/저것 (대명사)", "거절하다", "거칠다", "거울"],
+        correctAnswerIndex: 0,
+        explanation: "말하려는 단어가 금방 생각나지 않거나 굳이 말하지 않아도 알 때 쓰는 대명사입니다."
+      },
+      {
+        question: "'시방'의 뜻은?",
+        options: ["욕설", "지금", "사방", "가방"],
+        correctAnswerIndex: 1,
+        explanation: "'시방'은 '지금(now)'을 뜻하는 표준어이기도 하지만 전라도 사투리에서 매우 자주 쓰입니다."
+      }
+    ],
+    '중간맛': [
+      {
+        question: "'뽀짝 붙어라'에서 '뽀짝'의 뜻은?",
+        options: ["바짝/가까이", "천천히", "살살", "멀리"],
+        correctAnswerIndex: 0,
+        explanation: "거리를 매우 좁혀서 가까이 붙으라는 뜻입니다."
+      },
+      {
+        question: "'귄있다'의 칭찬 의미는?",
+        options: ["귀가 크다", "매력 있고 예쁘게 생겼다", "권위가 있다", "귀찮게 한다"],
+        correctAnswerIndex: 1,
+        explanation: "단순히 예쁜 것보다 볼수록 매력 있고 호감 가는 얼굴을 칭찬할 때 '귄있다'고 합니다."
+      },
+      {
+        question: "'해야'의 의미는?",
+        options: ["태양", "해야 한다", "아이(Child)", "해(Year)"],
+        correctAnswerIndex: 2,
+        explanation: "전라도 사투리에서 '해야'는 '어린 아이'를 부르는 말로 쓰이기도 합니다."
+      }
+    ],
+    '매운맛': [
+      {
+        question: "'몽니'를 부리다의 뜻은?",
+        options: ["잠을 자다", "심술/욕심을 부리다", "돈을 쓰다", "멍을 때리다"],
+        correctAnswerIndex: 1,
+        explanation: "정당한 대우를 받지 못했다고 느껴 심술을 부리는 성질을 뜻합니다."
+      },
+      {
+        question: "'가실'의 뜻은?",
+        options: ["거실", "가을", "가시다", "과실"],
+        correctAnswerIndex: 1,
+        explanation: "전라도 방언으로 '가을'을 '가실'이라고 합니다. '가실걷이(가을걷이)' 등으로 쓰입니다."
+      },
+      {
+        question: "'솔찬하다'의 뜻은?",
+        options: ["소나무가 많다", "제법 많다/상당하다", "솔직하다", "차갑다"],
+        correctAnswerIndex: 1,
+        explanation: "양이나 정도가 생각보다 많거나 꽤 될 때 '솔찬하다', '솔찬히'라고 합니다."
+      }
+    ]
+  },
+  '충청도': {
+    '순한맛': [
+      {
+        question: "'괜찮아유'의 진짜 속마음은?",
+        options: ["정말 괜찮다", "상황에 따라 거절일 수도 긍정일 수도 있다", "무조건 싫다", "무조건 좋다"],
+        correctAnswerIndex: 1,
+        explanation: "충청도의 '괜찮아유'는 문맥과 뉘앙스를 잘 파악해야 합니다. 거절의 의미일 때도 많습니다."
+      },
+      {
+        question: "'그려'의 뜻은?",
+        options: ["그림을 그려라", "그래(긍정)", "그립다", "그렇지 않다"],
+        correctAnswerIndex: 1,
+        explanation: "상대방의 말에 동의하거나 긍정할 때 '그려~'라고 합니다."
+      }
+    ],
+    '중간맛': [
+      {
+        question: "'개구락지'는 무엇일까요?",
+        options: ["강아지", "개구리", "구렁이", "낙지"],
+        correctAnswerIndex: 1,
+        explanation: "충청도에서는 개구리를 '개구락지'라고 부릅니다."
+      },
+      {
+        question: "돌을 뜻하는 충청도 사투리는?",
+        options: ["독", "돌맹", "도꾸", "독짝"],
+        correctAnswerIndex: 3,
+        explanation: "작은 돌을 '독짝' 또는 '독'이라고 부르기도 합니다."
+      }
+    ],
+    '매운맛': [
+      {
+        question: "'탑세기'는 무엇일까요?",
+        options: ["탑", "먼지", "쓰레기", "모래"],
+        correctAnswerIndex: 1,
+        explanation: "충청도 방언으로 '먼지'를 '탑세기'라고 합니다."
+      },
+      {
+        question: "'산가이'의 뜻은?",
+        options: ["산속에", "살가이(친하게)", "산토끼", "몰래"],
+        correctAnswerIndex: 3,
+        explanation: "'산가이'는 남들 모르게 슬그머니, 혹은 몰래라는 뜻으로 쓰입니다."
+      }
+    ]
+  },
+  '강원도': {
+    '순한맛': [
+      {
+        question: "어미 '-드래요'는 어느 지역 사투리일까요?",
+        options: ["강원도", "제주도", "서울", "부산"],
+        correctAnswerIndex: 0,
+        explanation: "강원도 사투리의 대표적인 특징 중 하나가 말끝을 '-드래요'로 맺는 것입니다."
+      },
+      {
+        question: "'감자바우'는 누구를 지칭하나요?",
+        options: ["감자 농사꾼", "강원도 사람", "바보", "요리사"],
+        correctAnswerIndex: 1,
+        explanation: "강원도 사람을 순박하고 친근하게 부르는 별명입니다."
+      }
+    ],
+    '중간맛': [
+      {
+        question: "'옥수수'의 강원도 사투리는?",
+        options: ["강냉이", "옥시기", "수수", "노랭이"],
+        correctAnswerIndex: 1,
+        explanation: "강원도에서는 옥수수를 '옥시기' 또는 '강냉이'라고 많이 부릅니다."
+      }
+    ],
+    '매운맛': [
+      {
+        question: "'꼴뚜국수'는 무엇일까요?",
+        options: ["꼴뚜기 국수", "메밀 국수(콧등치기)", "칼국수", "라면"],
+        correctAnswerIndex: 1,
+        explanation: "메밀로 만든 국수로, 먹을 때 면발이 콧등을 친다고 해서 '콧등치기' 또는 '꼴뚜국수'라고 합니다."
+      }
+    ]
+  },
+  '제주도': {
+    '순한맛': [
+      {
+        question: "'혼저옵서예'의 뜻은?",
+        options: ["혼자 오세요", "어서 오세요", "앉으세요", "집에 가세요"],
+        correctAnswerIndex: 1,
+        explanation: "'혼저(어서) 옵서예(오세요)'라는 뜻의 환영 인사입니다."
+      },
+      {
+        question: "'맨도롱 또똣'의 뜻은?",
+        options: ["맨발로 뛰어라", "기분 좋게 따뜻하다", "매우 뜨겁다", "차갑다"],
+        correctAnswerIndex: 1,
+        explanation: "먹기 좋을 만큼 알맞게 따뜻하다는 뜻의 예쁜 제주말입니다."
+      }
+    ],
+    '중간맛': [
+      {
+        question: "'가시어멍'은 누구일까요?",
+        options: ["친정 엄마", "장모님", "시어머니", "이모"],
+        correctAnswerIndex: 1,
+        explanation: "제주도에서 장모님을 '가시어멍', 장인어른을 '가시아방'이라고 합니다."
+      }
+    ],
+    '매운맛': [
+      {
+        question: "'폭낭'은 무슨 나무일까요?",
+        options: ["소나무", "팽나무", "대나무", "감나무"],
+        correctAnswerIndex: 1,
+        explanation: "제주도 마을 입구에 자주 보이는 큰 팽나무를 '폭낭'이라고 부릅니다."
+      },
+      {
+        question: "'비바리'는 누구를 뜻할까요?",
+        options: ["결혼하지 않은 처녀", "해녀", "바리스타", "비가 오는 날"],
+        correctAnswerIndex: 0,
+        explanation: "제주도에서 바다에서 일하는 처녀나 미혼 여성을 '비바리'라고 불렀습니다."
+      }
+    ]
+  }
+};
+
+// Helper to get random questions from static DB
+const getStaticQuestions = (region: Region, difficulty: Difficulty): Question[] => {
+  const regionData = STATIC_QUESTIONS[region];
+  // If difficulty doesn't exist or has no questions, fallback to any difficulty in that region
+  let pool = regionData?.[difficulty] || [];
+  
+  if (pool.length === 0) {
+    // Fallback: collect all questions from this region
+    pool = Object.values(regionData).flat();
+  }
+  
+  if (pool.length === 0) {
+    // Final Fallback: Return a dummy question
+    return [{
+      question: `${region} ${difficulty} 문제는 아직 준비중입니다!`,
+      options: ["알겠습니다", "넘어가기", "홈으로", "기다리기"],
+      correctAnswerIndex: 0,
+      explanation: "데이터 업데이트를 기다려주세요."
+    }];
+  }
+
+  // Shuffle and pick 5
+  const shuffled = [...pool].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, 5);
+};
+
 // --- Components ---
 
 const App = () => {
   const [appState, setAppState] = useState<AppState>('MENU');
   const [config, setConfig] = useState<QuizConfig>({ region: '경상도', difficulty: '중간맛' });
+  const [gameMode, setGameMode] = useState<GameMode>('BASIC'); // Default to BASIC for stability
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQIndex, setCurrentQIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [isAnswerRevealed, setIsAnswerRevealed] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState("AI가 문제를 출제하고 있습니다...");
+  const [loadingMessage, setLoadingMessage] = useState("문제를 준비하고 있습니다...");
   const [feedback, setFeedback] = useState<FeedbackType>(null);
   const [showToast, setShowToast] = useState(false);
 
@@ -57,13 +329,21 @@ const App = () => {
   // 로딩 메시지 로테이션
   useEffect(() => {
     if (appState === 'LOADING') {
-      const messages = [
-        `${config.region} 토박이 섭외 중...`,
-        "사투리 족보 뒤지는 중...",
-        "할머니께 전화로 물어보는 중...",
-        "난이도 조절을 위해 고심 중...",
-        "재미있는 문제 엄선 중..."
-      ];
+      const messages = gameMode === 'AI' 
+        ? [
+            `${config.region} 토박이 AI 섭외 중...`,
+            "사투리 족보 실시간 분석 중...",
+            "할머니께 전화로 물어보는 중...",
+            "난이도 조절을 위해 고심 중...",
+            "세상에 없던 문제 생성 중..."
+          ]
+        : [
+            "시험지 인쇄 중...",
+            "기출 문제집 펴는 중...",
+            "컴퓨터용 사인펜 준비 중...",
+            "족집게 문제 고르는 중..."
+          ];
+      
       let i = 0;
       const interval = setInterval(() => {
         setLoadingMessage(messages[i % messages.length]);
@@ -71,7 +351,7 @@ const App = () => {
       }, 2000);
       return () => clearInterval(interval);
     }
-  }, [appState, config.region]);
+  }, [appState, config.region, gameMode]);
 
   useEffect(() => {
     if (showToast) {
@@ -80,12 +360,39 @@ const App = () => {
     }
   }, [showToast]);
 
-  // --- Gemini API Logic ---
+  // --- Quiz Logic ---
   const generateQuiz = async () => {
     setAppState('LOADING');
+    
+    if (gameMode === 'BASIC') {
+      // Static Mode Logic
+      setTimeout(() => {
+        try {
+          const staticQ = getStaticQuestions(config.region, config.difficulty);
+          setQuestions(staticQ);
+          setScore(0);
+          setCurrentQIndex(0);
+          setSelectedAnswer(null);
+          setIsAnswerRevealed(false);
+          setFeedback(null);
+          setAppState('QUIZ');
+        } catch (e) {
+          console.error(e);
+          setAppState('ERROR');
+        }
+      }, 1500); // Fake loading for UX
+      return;
+    }
+
+    // AI Mode Logic
     setLoadingMessage(`${config.region} 사투리 ${config.difficulty} 문제를 만들고 있어요...`);
     
     try {
+      // Check for API Key
+      if (!process.env.API_KEY) {
+        throw new Error("API_KEY_MISSING");
+      }
+
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
       const prompt = `
@@ -145,8 +452,10 @@ const App = () => {
         throw new Error("No data returned");
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error generating quiz:", error);
+      // If API key missing, specific error message is better handled in renderError, 
+      // but we pass state to ERROR
       setAppState('ERROR');
     }
   };
@@ -157,10 +466,8 @@ const App = () => {
     setSelectedAnswer(index);
     const isCorrect = index === questions[currentQIndex].correctAnswerIndex;
     
-    // 즉각적인 시각적 피드백
     setFeedback(isCorrect ? 'CORRECT' : 'WRONG');
     
-    // 잠시 후 해설 보여주기
     setTimeout(() => {
       setFeedback(null);
       setIsAnswerRevealed(true);
@@ -206,7 +513,6 @@ const App = () => {
       }
     } catch (err) {
       console.error('Sharing failed', err);
-      // Fallback if share fails / is cancelled
     }
   };
 
@@ -240,7 +546,7 @@ const App = () => {
 
   const renderMenu = () => (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 max-w-md mx-auto relative z-10">
-      <div className="text-center mb-8 animate-fade-in-down">
+      <div className="text-center mb-6 animate-fade-in-down">
         <div className="inline-block p-4 rounded-full bg-green-100 mb-4 shadow-inner ring-4 ring-green-50">
           <MapPin className="w-12 h-12 text-green-600" />
         </div>
@@ -249,6 +555,38 @@ const App = () => {
       </div>
 
       <div className="w-full space-y-6 bg-white/90 backdrop-blur-md p-6 rounded-3xl shadow-xl border border-white/50">
+        
+        {/* Game Mode Selection */}
+        <div className="space-y-3">
+          <label className="text-sm font-bold text-gray-700 flex items-center gap-2 px-1">
+            <BookOpen className="w-4 h-4 text-blue-500" /> 출제 방식
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => setGameMode('BASIC')}
+              className={`p-3 rounded-xl text-sm font-bold transition-all duration-200 flex flex-col items-center gap-1 ${
+                gameMode === 'BASIC'
+                  ? 'bg-blue-500 text-white shadow-lg shadow-blue-200 ring-2 ring-blue-500 ring-offset-2'
+                  : 'bg-white text-gray-500 hover:bg-blue-50 border border-gray-100'
+              }`}
+            >
+              <span className="flex items-center gap-1"><BookOpen className="w-4 h-4" /> 기출 문제</span>
+              <span className="text-xs font-normal opacity-80">안정적 • API 불필요</span>
+            </button>
+            <button
+              onClick={() => setGameMode('AI')}
+              className={`p-3 rounded-xl text-sm font-bold transition-all duration-200 flex flex-col items-center gap-1 ${
+                gameMode === 'AI'
+                  ? 'bg-purple-500 text-white shadow-lg shadow-purple-200 ring-2 ring-purple-500 ring-offset-2'
+                  : 'bg-white text-gray-500 hover:bg-purple-50 border border-gray-100'
+              }`}
+            >
+              <span className="flex items-center gap-1"><Bot className="w-4 h-4" /> AI 생성</span>
+              <span className="text-xs font-normal opacity-80">무한 문제 • API 필요</span>
+            </button>
+          </div>
+        </div>
+
         <div className="space-y-3">
           <label className="text-sm font-bold text-gray-700 flex items-center gap-2 px-1">
             <MapPin className="w-4 h-4 text-green-500" /> 도전할 지역
@@ -293,10 +631,17 @@ const App = () => {
 
         <button
           onClick={generateQuiz}
-          className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold text-xl shadow-xl hover:bg-gray-800 transition-all active:scale-95 flex items-center justify-center gap-2 mt-4 relative overflow-hidden group"
+          className={`w-full py-4 rounded-2xl font-bold text-xl shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 mt-4 relative overflow-hidden group ${
+            gameMode === 'AI' ? 'bg-purple-900 hover:bg-purple-800' : 'bg-gray-900 hover:bg-gray-800'
+          } text-white`}
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-gray-800 to-gray-900"></div>
-          <span className="relative flex items-center gap-2"><Sparkles className="w-5 h-5" /> 시험 시작하기</span>
+          <div className={`absolute inset-0 bg-gradient-to-r ${
+            gameMode === 'AI' ? 'from-purple-800 to-purple-900' : 'from-gray-800 to-gray-900'
+          }`}></div>
+          <span className="relative flex items-center gap-2">
+            {gameMode === 'AI' ? <Sparkles className="w-5 h-5" /> : <BookOpen className="w-5 h-5" />}
+            시험 시작하기
+          </span>
         </button>
       </div>
     </div>
@@ -309,7 +654,7 @@ const App = () => {
         <Loader2 className="w-16 h-16 text-green-600 animate-spin relative z-10" />
       </div>
       <h2 className="text-2xl font-jua text-gray-800 animate-fade-in-up text-center mb-2 min-h-[3rem]">{loadingMessage}</h2>
-      <p className="text-gray-500 text-sm">AI가 문제를 생성하고 있습니다...</p>
+      <p className="text-gray-500 text-sm">잠시만 기다려주세요...</p>
     </div>
   );
 
@@ -319,20 +664,26 @@ const App = () => {
         <AlertCircle className="w-16 h-16 text-red-500 mb-4 mx-auto" />
         <h2 className="text-xl font-bold text-gray-800 mb-2">문제가 생겼어요!</h2>
         <p className="text-gray-600 mb-6 text-sm">
-           API 키 설정을 확인하거나<br/>잠시 후 다시 시도해주세요.
+           {gameMode === 'AI' && !process.env.API_KEY 
+             ? <span>AI 모드는 API 키가 필요합니다.<br/><b>기출 문제 모드</b>로 다시 시도해보세요!</span>
+             : <span>일시적인 오류입니다.<br/>잠시 후 다시 시도해주세요.</span>
+           }
         </p>
-        <div className="flex gap-3">
+        <div className="flex flex-col gap-3">
           <button
-            onClick={() => setAppState('MENU')}
-            className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors"
+            onClick={() => {
+              setGameMode('BASIC');
+              setAppState('MENU');
+            }}
+            className="w-full py-3 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 transition-colors shadow-md flex items-center justify-center gap-2"
           >
-            홈으로
+            <BookOpen className="w-4 h-4" /> 기출 문제로 하기
           </button>
           <button
-            onClick={generateQuiz}
-            className="flex-1 py-3 bg-green-500 text-white rounded-xl font-bold hover:bg-green-600 transition-colors shadow-lg"
+            onClick={() => setAppState('MENU')}
+            className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors"
           >
-            재시도
+            홈으로
           </button>
         </div>
       </div>
@@ -358,6 +709,11 @@ const App = () => {
           </button>
           
           <div className="flex gap-2">
+             {gameMode === 'AI' && (
+              <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-bold flex items-center gap-1">
+                <Sparkles className="w-3 h-3" /> AI
+              </span>
+            )}
             <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">
               {config.region}
             </span>
