@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GoogleGenAI, Type } from "@google/genai";
 import { 
@@ -13,7 +13,9 @@ import {
   Sparkles,
   Share2,
   Home,
-  AlertCircle
+  AlertCircle,
+  LogOut,
+  Copy
 } from "lucide-react";
 
 // --- Types ---
@@ -33,6 +35,7 @@ interface QuizConfig {
 }
 
 type AppState = 'MENU' | 'LOADING' | 'QUIZ' | 'RESULT' | 'ERROR';
+type FeedbackType = 'CORRECT' | 'WRONG' | null;
 
 // --- Components ---
 
@@ -45,6 +48,8 @@ const App = () => {
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [isAnswerRevealed, setIsAnswerRevealed] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("AI가 문제를 출제하고 있습니다...");
+  const [feedback, setFeedback] = useState<FeedbackType>(null);
+  const [showToast, setShowToast] = useState(false);
 
   const regions: Region[] = ['경상도', '전라도', '충청도', '강원도', '제주도'];
   const difficulties: Difficulty[] = ['순한맛', '중간맛', '매운맛'];
@@ -68,6 +73,13 @@ const App = () => {
     }
   }, [appState, config.region]);
 
+  useEffect(() => {
+    if (showToast) {
+      const timer = setTimeout(() => setShowToast(false), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [showToast]);
+
   // --- Gemini API Logic ---
   const generateQuiz = async () => {
     setAppState('LOADING');
@@ -90,6 +102,7 @@ const App = () => {
         3. 상황에 맞는 대답 고르기
         
         설명(explanation)은 친근한 말투(해요체)로 작성해주시고, 정답인 이유와 함께 해당 사투리의 유래나 재미있는 활용 예시를 덧붙여주세요.
+        결과는 반드시 JSON 형식을 준수해주세요.
       `;
 
       const response = await ai.models.generateContent({
@@ -126,6 +139,7 @@ const App = () => {
         setCurrentQIndex(0);
         setSelectedAnswer(null);
         setIsAnswerRevealed(false);
+        setFeedback(null);
         setAppState('QUIZ');
       } else {
         throw new Error("No data returned");
@@ -139,11 +153,21 @@ const App = () => {
 
   const handleAnswer = (index: number) => {
     if (isAnswerRevealed) return;
+    
     setSelectedAnswer(index);
-    setIsAnswerRevealed(true);
-    if (index === questions[currentQIndex].correctAnswerIndex) {
-      setScore(s => s + 1);
-    }
+    const isCorrect = index === questions[currentQIndex].correctAnswerIndex;
+    
+    // 즉각적인 시각적 피드백
+    setFeedback(isCorrect ? 'CORRECT' : 'WRONG');
+    
+    // 잠시 후 해설 보여주기
+    setTimeout(() => {
+      setFeedback(null);
+      setIsAnswerRevealed(true);
+      if (isCorrect) {
+        setScore(s => s + 1);
+      }
+    }, 800);
   };
 
   const nextQuestion = () => {
@@ -178,26 +202,53 @@ const App = () => {
         });
       } else {
         await navigator.clipboard.writeText(text);
-        alert('결과가 클립보드에 복사되었습니다!');
+        setShowToast(true);
       }
     } catch (err) {
       console.error('Sharing failed', err);
+      // Fallback if share fails / is cancelled
     }
   };
 
   // --- Renders ---
 
+  const renderToast = () => (
+    <div className={`fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-lg transition-opacity duration-300 flex items-center gap-2 z-50 ${showToast ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+      <Copy className="w-4 h-4" />
+      <span className="text-sm font-bold">결과가 클립보드에 복사되었습니다!</span>
+    </div>
+  );
+
+  const renderFeedbackOverlay = () => {
+    if (!feedback) return null;
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none bg-black/10 backdrop-blur-[2px]">
+        <div className={`transform transition-all duration-300 ${feedback === 'CORRECT' ? 'scale-100' : 'scale-100'}`}>
+          {feedback === 'CORRECT' ? (
+             <div className="bg-white rounded-full p-4 shadow-2xl animate-pop">
+               <CheckCircle2 className="w-32 h-32 text-green-500" />
+             </div>
+          ) : (
+            <div className="bg-white rounded-full p-4 shadow-2xl animate-pop">
+              <XCircle className="w-32 h-32 text-red-500" />
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const renderMenu = () => (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 max-w-md mx-auto relative z-10">
       <div className="text-center mb-8 animate-fade-in-down">
-        <div className="inline-block p-4 rounded-full bg-green-100 mb-4 shadow-inner">
-          <MapPin className="w-10 h-10 text-green-600" />
+        <div className="inline-block p-4 rounded-full bg-green-100 mb-4 shadow-inner ring-4 ring-green-50">
+          <MapPin className="w-12 h-12 text-green-600" />
         </div>
-        <h1 className="text-5xl font-jua text-gray-800 mb-2 tracking-wide drop-shadow-sm">전국 사투리<br/><span className="text-green-600">능력고사</span></h1>
-        <p className="text-gray-500 font-medium">니 사투리 쫌 치나?</p>
+        <h1 className="text-5xl font-jua text-gray-800 mb-2 tracking-wide drop-shadow-sm leading-tight">전국 사투리<br/><span className="text-green-600">능력고사</span></h1>
+        <p className="text-gray-500 font-medium bg-white/50 inline-block px-4 py-1 rounded-full">니 사투리 쫌 치나?</p>
       </div>
 
-      <div className="w-full space-y-6 bg-white/80 backdrop-blur-sm p-6 rounded-3xl shadow-xl border border-white/50">
+      <div className="w-full space-y-6 bg-white/90 backdrop-blur-md p-6 rounded-3xl shadow-xl border border-white/50">
         <div className="space-y-3">
           <label className="text-sm font-bold text-gray-700 flex items-center gap-2 px-1">
             <MapPin className="w-4 h-4 text-green-500" /> 도전할 지역
@@ -242,10 +293,10 @@ const App = () => {
 
         <button
           onClick={generateQuiz}
-          className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold text-xl shadow-xl hover:bg-gray-800 transition-all active:scale-95 flex items-center justify-center gap-2 mt-4"
+          className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold text-xl shadow-xl hover:bg-gray-800 transition-all active:scale-95 flex items-center justify-center gap-2 mt-4 relative overflow-hidden group"
         >
-          <Sparkles className="w-5 h-5" />
-          시험 시작하기
+          <div className="absolute inset-0 bg-gradient-to-r from-gray-800 to-gray-900"></div>
+          <span className="relative flex items-center gap-2"><Sparkles className="w-5 h-5" /> 시험 시작하기</span>
         </button>
       </div>
     </div>
@@ -257,29 +308,33 @@ const App = () => {
         <div className="absolute inset-0 bg-green-200 rounded-full blur-xl opacity-50 animate-pulse"></div>
         <Loader2 className="w-16 h-16 text-green-600 animate-spin relative z-10" />
       </div>
-      <h2 className="text-2xl font-jua text-gray-800 animate-fade-in-up text-center mb-2">{loadingMessage}</h2>
-      <p className="text-gray-500 text-sm">잠시만 기다려주이소~</p>
+      <h2 className="text-2xl font-jua text-gray-800 animate-fade-in-up text-center mb-2 min-h-[3rem]">{loadingMessage}</h2>
+      <p className="text-gray-500 text-sm">AI가 문제를 생성하고 있습니다...</p>
     </div>
   );
 
   const renderError = () => (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 relative z-10">
-      <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
-      <h2 className="text-xl font-bold text-gray-800 text-center mb-2">문제가 생겼습니다!</h2>
-      <p className="text-gray-600 text-center mb-8">일시적인 오류가 발생했어요.<br/>다시 시도해주시겠어요?</p>
-      <div className="flex gap-3 w-full max-w-xs">
-        <button
-          onClick={() => setAppState('MENU')}
-          className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-300 transition-colors"
-        >
-          홈으로
-        </button>
-        <button
-          onClick={generateQuiz}
-          className="flex-1 py-3 bg-green-500 text-white rounded-xl font-bold hover:bg-green-600 transition-colors shadow-lg"
-        >
-          재시도
-        </button>
+      <div className="bg-white p-8 rounded-3xl shadow-xl text-center max-w-xs w-full">
+        <AlertCircle className="w-16 h-16 text-red-500 mb-4 mx-auto" />
+        <h2 className="text-xl font-bold text-gray-800 mb-2">문제가 생겼어요!</h2>
+        <p className="text-gray-600 mb-6 text-sm">
+           API 키 설정을 확인하거나<br/>잠시 후 다시 시도해주세요.
+        </p>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setAppState('MENU')}
+            className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors"
+          >
+            홈으로
+          </button>
+          <button
+            onClick={generateQuiz}
+            className="flex-1 py-3 bg-green-500 text-white rounded-xl font-bold hover:bg-green-600 transition-colors shadow-lg"
+          >
+            재시도
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -288,45 +343,48 @@ const App = () => {
     const question = questions[currentQIndex];
     return (
       <div className="min-h-screen flex flex-col p-4 max-w-md mx-auto py-6 relative z-10">
+        {renderFeedbackOverlay()}
+        
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex justify-between items-center mb-8 bg-white/60 backdrop-blur p-2 rounded-full border border-white/50 shadow-sm">
           <button 
             onClick={() => {
-              if(confirm('정말 시험을 그만두시겠습니까?')) setAppState('MENU');
+              if(confirm('시험을 중단하고 홈으로 돌아가시겠습니까?')) setAppState('MENU');
             }}
-            className="p-2 -ml-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+            className="p-2 text-gray-400 hover:text-red-500 rounded-full hover:bg-red-50 transition-colors"
+            aria-label="그만두기"
           >
-            <Home className="w-5 h-5" />
+            <LogOut className="w-5 h-5" />
           </button>
           
           <div className="flex gap-2">
-            <span className="px-3 py-1 bg-white border border-green-200 text-green-700 rounded-full text-xs font-bold shadow-sm">
+            <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">
               {config.region}
             </span>
-            <span className="px-3 py-1 bg-white border border-orange-200 text-orange-700 rounded-full text-xs font-bold shadow-sm">
+            <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-bold">
               {config.difficulty}
             </span>
           </div>
           
-          <span className="text-gray-900 font-mono font-black text-lg">
+          <div className="px-3 font-mono font-black text-lg flex items-center">
             <span className="text-green-600">{currentQIndex + 1}</span>
             <span className="text-gray-300 text-sm mx-1">/</span>
             <span className="text-gray-400 text-sm">{questions.length}</span>
-          </span>
+          </div>
         </div>
 
         {/* Progress Bar */}
-        <div className="w-full bg-gray-100 h-1.5 rounded-full mb-8 overflow-hidden">
+        <div className="w-full bg-gray-200 h-2 rounded-full mb-8 overflow-hidden">
           <div 
-            className="bg-green-500 h-full transition-all duration-300 ease-out rounded-full"
+            className="bg-green-500 h-full transition-all duration-500 ease-out rounded-full shadow-[0_0_10px_rgba(34,197,94,0.5)]"
             style={{ width: `${((currentQIndex + 1) / questions.length) * 100}%` }}
           />
         </div>
 
         {/* Question Card */}
-        <div className="bg-white/90 backdrop-blur rounded-3xl p-8 shadow-xl mb-6 min-h-[180px] flex items-center justify-center border border-white/50 relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-400 to-blue-500"></div>
-          <h2 className="text-2xl font-bold text-center text-gray-800 leading-relaxed font-jua">
+        <div className="bg-white/90 backdrop-blur rounded-3xl p-8 shadow-xl mb-6 min-h-[180px] flex items-center justify-center border border-white/50 relative overflow-hidden animate-fade-in-up">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-400 via-teal-500 to-blue-500"></div>
+          <h2 className="text-2xl font-bold text-center text-gray-800 leading-relaxed font-jua break-keep">
             {question.question}
           </h2>
         </div>
@@ -334,15 +392,18 @@ const App = () => {
         {/* Options */}
         <div className="space-y-3 flex-1">
           {question.options.map((option, idx) => {
-            let btnClass = "w-full p-4 rounded-xl text-left border-2 font-medium transition-all duration-200 relative overflow-hidden ";
+            let btnClass = "w-full p-4 rounded-xl text-left border-2 font-medium transition-all duration-200 relative overflow-hidden group ";
+            let icon = <div className="w-6 h-6 rounded-full border-2 border-gray-300 group-hover:border-green-400 transition-colors"></div>;
             
             if (!isAnswerRevealed) {
-              btnClass += "bg-white border-white hover:border-green-300 hover:bg-green-50 text-gray-700 shadow-sm hover:shadow-md hover:-translate-y-0.5";
+              btnClass += "bg-white border-white hover:border-green-300 hover:bg-green-50 text-gray-700 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-95";
             } else {
               if (idx === question.correctAnswerIndex) {
                 btnClass += "bg-green-100 border-green-500 text-green-800 shadow-none ring-2 ring-green-500 ring-offset-2";
+                icon = <CheckCircle2 className="w-6 h-6 text-green-600" />;
               } else if (idx === selectedAnswer) {
                 btnClass += "bg-red-100 border-red-500 text-red-800 shadow-none opacity-80";
+                icon = <XCircle className="w-6 h-6 text-red-600" />;
               } else {
                 btnClass += "bg-gray-50 border-transparent text-gray-400 opacity-50";
               }
@@ -357,8 +418,7 @@ const App = () => {
               >
                 <div className="flex justify-between items-center relative z-10">
                   <span className="text-lg">{option}</span>
-                  {isAnswerRevealed && idx === question.correctAnswerIndex && <CheckCircle2 className="w-6 h-6 text-green-600 animate-bounce" />}
-                  {isAnswerRevealed && idx === selectedAnswer && idx !== question.correctAnswerIndex && <XCircle className="w-6 h-6 text-red-600 animate-pulse" />}
+                  {icon}
                 </div>
               </button>
             );
@@ -368,9 +428,10 @@ const App = () => {
         {/* Explanation & Next Button */}
         {isAnswerRevealed && (
           <div className="mt-6 animate-fade-in-up">
-            <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100 mb-4 shadow-sm">
+            <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100 mb-4 shadow-sm relative overflow-hidden">
+               <div className="absolute top-0 left-0 w-1 h-full bg-blue-400"></div>
               <div className="flex items-center gap-2 mb-2">
-                <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded">해설</span>
+                <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded">정답 해설</span>
               </div>
               <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-line">
                 {question.explanation}
@@ -380,7 +441,7 @@ const App = () => {
               onClick={nextQuestion}
               className="w-full py-4 bg-gray-900 text-white rounded-xl font-bold text-lg shadow-xl hover:bg-gray-800 flex items-center justify-center gap-2 transition-transform active:scale-95"
             >
-              {currentQIndex < questions.length - 1 ? "다음 문제" : "결과 확인하기"} <ChevronRight className="w-5 h-5" />
+              {currentQIndex < questions.length - 1 ? "다음 문제 도전" : "성적표 확인하기"} <ChevronRight className="w-5 h-5" />
             </button>
           </div>
         )}
@@ -394,13 +455,14 @@ const App = () => {
 
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4 max-w-md mx-auto relative z-10 animate-fade-in-down">
+        {renderToast()}
         <div className="bg-white w-full rounded-3xl shadow-2xl overflow-hidden text-center relative">
           {/* Top Banner */}
           <div className={`p-10 ${percentage >= 80 ? 'bg-gradient-to-b from-yellow-300 to-yellow-100' : 'bg-gradient-to-b from-green-300 to-green-100'}`}>
-            <div className="absolute top-4 right-4 opacity-20">
+            <div className="absolute top-4 right-4 opacity-20 animate-pulse">
               <Trophy className="w-24 h-24" />
             </div>
-            <Trophy className="w-20 h-20 text-white mx-auto drop-shadow-md mb-4" />
+            <Trophy className="w-20 h-20 text-white mx-auto drop-shadow-md mb-4 transform hover:scale-110 transition-transform" />
             <h2 className="text-4xl font-jua text-gray-900 mb-2 drop-shadow-sm">{title}</h2>
             <div className="inline-block px-4 py-1 bg-white/50 backdrop-blur rounded-full text-sm font-bold text-gray-700 mt-2">
               {config.region} • {config.difficulty}
@@ -415,14 +477,15 @@ const App = () => {
               <span className="text-2xl text-gray-400 font-bold mb-4">점</span>
             </div>
 
-            <div className="h-4 bg-gray-100 rounded-full overflow-hidden mb-8 shadow-inner">
+            <div className="h-4 bg-gray-100 rounded-full overflow-hidden mb-8 shadow-inner relative">
+               <div className="absolute top-0 left-0 w-full h-full bg-gray-200/50"></div>
               <div 
-                className="h-full bg-green-500 transition-all duration-1000 ease-out"
+                className={`h-full transition-all duration-1000 ease-out rounded-full ${percentage >= 80 ? 'bg-yellow-400' : 'bg-green-500'}`}
                 style={{ width: `${percentage}%` }}
               />
             </div>
             
-            <p className="text-gray-600 mb-8 leading-relaxed font-medium bg-gray-50 p-4 rounded-xl">
+            <p className="text-gray-600 mb-8 leading-relaxed font-medium bg-gray-50 p-4 rounded-xl border border-gray-100">
               {percentage >= 80 
                 ? "와! 진짜 사투리 고수시네요!\n혹시 고향이... 그쪽 아니십니꺼?" 
                 : percentage >= 40 
@@ -433,14 +496,14 @@ const App = () => {
             <div className="flex gap-3">
               <button
                 onClick={shareResult}
-                className="flex-1 py-4 bg-blue-500 text-white rounded-xl font-bold text-lg shadow-lg hover:bg-blue-600 transition-all flex items-center justify-center gap-2"
+                className="flex-1 py-4 bg-blue-500 text-white rounded-xl font-bold text-lg shadow-lg hover:bg-blue-600 transition-all flex items-center justify-center gap-2 active:scale-95"
               >
                 <Share2 className="w-5 h-5" />
-                자랑하기
+                결과 공유
               </button>
               <button
                 onClick={() => setAppState('MENU')}
-                className="flex-1 py-4 bg-gray-100 text-gray-700 rounded-xl font-bold text-lg hover:bg-gray-200 transition-all flex items-center justify-center gap-2"
+                className="flex-1 py-4 bg-gray-100 text-gray-700 rounded-xl font-bold text-lg hover:bg-gray-200 transition-all flex items-center justify-center gap-2 active:scale-95"
               >
                 <RefreshCw className="w-5 h-5" />
                 다시하기
