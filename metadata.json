@@ -1,0 +1,5 @@
+{
+  "description": "한국의 지역별 사투리 능력고사 앱. Gemini API를 활용하여 무한한 퀴즈를 생성합니다.",
+  "requestFramePermissions": [],
+  "name": "SaturiGame"
+}
