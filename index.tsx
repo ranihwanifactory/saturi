@@ -307,24 +307,31 @@ const getStaticQuestions = (region: Region, difficulty: Difficulty): Question[] 
 // --- API Key Helper for Client-Side Deployments ---
 const getApiKey = (): string | undefined => {
   try {
-    // 1. Standard process.env.API_KEY
-    if (typeof process !== 'undefined' && process.env?.API_KEY) {
-      return process.env.API_KEY;
-    }
-    // 2. Next.js Public Variable
-    if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_KEY) {
-      return process.env.NEXT_PUBLIC_API_KEY;
-    }
-    // 3. Create React App Variable
-    if (typeof process !== 'undefined' && process.env?.REACT_APP_API_KEY) {
-      return process.env.REACT_APP_API_KEY;
-    }
-    // 4. Vite Environment Variable
+    // Priority 1: Modern Vite/Framework Prefixes (Most Vercel deployments use these)
     // @ts-ignore
     if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_KEY) {
       // @ts-ignore
       return import.meta.env.VITE_API_KEY;
     }
+    if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_KEY) {
+      return process.env.NEXT_PUBLIC_API_KEY;
+    }
+    if (typeof process !== 'undefined' && process.env?.REACT_APP_API_KEY) {
+      return process.env.REACT_APP_API_KEY;
+    }
+
+    // Priority 2: Direct Keys (If manually configured in some bundlers)
+    if (typeof process !== 'undefined' && process.env?.API_KEY) {
+      return process.env.API_KEY;
+    }
+    
+    // Fallbacks
+    // @ts-ignore
+    if (typeof import.meta !== 'undefined' && import.meta.env?.API_KEY) {
+      // @ts-ignore
+      return import.meta.env.API_KEY;
+    }
+
   } catch (e) {
     console.warn("Failed to read environment variables", e);
   }
@@ -687,15 +694,14 @@ const App = () => {
              {isApiKeyError ? (
                <div className="space-y-2">
                  <p className="font-bold text-red-500">API 키가 확인되지 않습니다.</p>
-                 <p>Vercel이나 Netlify 같은 배포 환경에서는 보안상 <b>API_KEY</b> 변수가 차단될 수 있습니다.</p>
+                 <p className="text-xs">배포된 앱(Vercel 등)은 보안상의 이유로 <code>API_KEY</code> 변수를 차단합니다.</p>
                  <hr className="border-gray-300"/>
-                 <p className="text-xs">다음 중 하나로 환경변수 이름을 변경해보세요:</p>
-                 <ul className="list-disc list-inside text-xs font-mono bg-white p-2 rounded border border-gray-200 text-blue-600">
-                   <li>NEXT_PUBLIC_API_KEY</li>
-                   <li>VITE_API_KEY</li>
-                   <li>REACT_APP_API_KEY</li>
-                 </ul>
-                 <p className="text-xs mt-1">변경 후 반드시 <b>재배포(Re-deploy)</b>가 필요합니다.</p>
+                 <p className="font-bold text-blue-600">해결 방법:</p>
+                 <ol className="list-decimal list-inside text-xs space-y-1">
+                   <li>Vercel 대시보드(Settings)로 이동</li>
+                   <li>변수명을 <b><code>VITE_API_KEY</code></b>로 변경하여 추가</li>
+                   <li><b>Redeploy(재배포)</b> 버튼 클릭 (필수)</li>
+                 </ol>
                </div>
              ) : (
                <span>일시적인 오류이거나 인터넷 연결 문제입니다.<br/>잠시 후 다시 시도해주세요.</span>
