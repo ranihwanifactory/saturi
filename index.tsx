@@ -499,7 +499,8 @@ const App = () => {
 
   const shareResult = async () => {
     const title = getRankTitle(score, questions.length);
-    const text = `[전국 사투리 능력고사]\n\n나의 ${config.region} ${config.difficulty} 등급은?\n👉 ${title} (${score * 20}점)\n\n당신도 도전해보세요!`;
+    const url = window.location.href;
+    const text = `[전국 사투리 능력고사]\n\n나의 ${config.region} ${config.difficulty} 등급은?\n👉 ${title} (${score * 20}점)\n\n당신도 도전해보세요!\n${url}`;
     
     try {
       if (navigator.share) {
@@ -665,7 +666,7 @@ const App = () => {
         <h2 className="text-xl font-bold text-gray-800 mb-2">문제가 생겼어요!</h2>
         <p className="text-gray-600 mb-6 text-sm">
            {gameMode === 'AI' && !process.env.API_KEY 
-             ? <span>AI 모드는 API 키가 필요합니다.<br/><b>기출 문제 모드</b>로 다시 시도해보세요!</span>
+             ? <span>AI 모드는 API 키가 필요합니다.<br/>배포 설정의 환경변수(Environment Variables)에 <b>API_KEY</b>를 추가해주세요.<br/><br/><b>기출 문제 모드</b>는 바로 가능합니다!</span>
              : <span>일시적인 오류입니다.<br/>잠시 후 다시 시도해주세요.</span>
            }
         </p>
