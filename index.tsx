@@ -285,16 +285,13 @@ const STATIC_QUESTIONS: Record<Region, Record<Difficulty, Question[]>> = {
 // Helper to get random questions from static DB
 const getStaticQuestions = (region: Region, difficulty: Difficulty): Question[] => {
   const regionData = STATIC_QUESTIONS[region];
-  // If difficulty doesn't exist or has no questions, fallback to any difficulty in that region
   let pool = regionData?.[difficulty] || [];
   
   if (pool.length === 0) {
-    // Fallback: collect all questions from this region
     pool = Object.values(regionData).flat();
   }
   
   if (pool.length === 0) {
-    // Final Fallback: Return a dummy question
     return [{
       question: `${region} ${difficulty} 문제는 아직 준비중입니다!`,
       options: ["알겠습니다", "넘어가기", "홈으로", "기다리기"],
@@ -303,9 +300,35 @@ const getStaticQuestions = (region: Region, difficulty: Difficulty): Question[] 
     }];
   }
 
-  // Shuffle and pick 5
   const shuffled = [...pool].sort(() => 0.5 - Math.random());
   return shuffled.slice(0, 5);
+};
+
+// --- API Key Helper for Client-Side Deployments ---
+const getApiKey = (): string | undefined => {
+  try {
+    // 1. Standard process.env.API_KEY
+    if (typeof process !== 'undefined' && process.env?.API_KEY) {
+      return process.env.API_KEY;
+    }
+    // 2. Next.js Public Variable
+    if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_KEY) {
+      return process.env.NEXT_PUBLIC_API_KEY;
+    }
+    // 3. Create React App Variable
+    if (typeof process !== 'undefined' && process.env?.REACT_APP_API_KEY) {
+      return process.env.REACT_APP_API_KEY;
+    }
+    // 4. Vite Environment Variable
+    // @ts-ignore
+    if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_KEY) {
+      // @ts-ignore
+      return import.meta.env.VITE_API_KEY;
+    }
+  } catch (e) {
+    console.warn("Failed to read environment variables", e);
+  }
+  return undefined;
 };
 
 // --- Components ---
@@ -313,7 +336,7 @@ const getStaticQuestions = (region: Region, difficulty: Difficulty): Question[] 
 const App = () => {
   const [appState, setAppState] = useState<AppState>('MENU');
   const [config, setConfig] = useState<QuizConfig>({ region: '경상도', difficulty: '중간맛' });
-  const [gameMode, setGameMode] = useState<GameMode>('BASIC'); // Default to BASIC for stability
+  const [gameMode, setGameMode] = useState<GameMode>('BASIC'); 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQIndex, setCurrentQIndex] = useState(0);
   const [score, setScore] = useState(0);
@@ -326,7 +349,6 @@ const App = () => {
   const regions: Region[] = ['경상도', '전라도', '충청도', '강원도', '제주도'];
   const difficulties: Difficulty[] = ['순한맛', '중간맛', '매운맛'];
 
-  // 로딩 메시지 로테이션
   useEffect(() => {
     if (appState === 'LOADING') {
       const messages = gameMode === 'AI' 
@@ -360,12 +382,10 @@ const App = () => {
     }
   }, [showToast]);
 
-  // --- Quiz Logic ---
   const generateQuiz = async () => {
     setAppState('LOADING');
     
     if (gameMode === 'BASIC') {
-      // Static Mode Logic
       setTimeout(() => {
         try {
           const staticQ = getStaticQuestions(config.region, config.difficulty);
@@ -380,20 +400,19 @@ const App = () => {
           console.error(e);
           setAppState('ERROR');
         }
-      }, 1500); // Fake loading for UX
+      }, 1500);
       return;
     }
 
-    // AI Mode Logic
     setLoadingMessage(`${config.region} 사투리 ${config.difficulty} 문제를 만들고 있어요...`);
     
     try {
-      // Check for API Key
-      if (!process.env.API_KEY) {
+      const apiKey = getApiKey();
+      if (!apiKey) {
         throw new Error("API_KEY_MISSING");
       }
 
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey: apiKey });
       
       const prompt = `
         한국의 ${config.region} 사투리에 대한 재미있는 4지선다 퀴즈 5개를 만들어주세요.
@@ -454,8 +473,6 @@ const App = () => {
 
     } catch (error: any) {
       console.error("Error generating quiz:", error);
-      // If API key missing, specific error message is better handled in renderError, 
-      // but we pass state to ERROR
       setAppState('ERROR');
     }
   };
@@ -659,37 +676,52 @@ const App = () => {
     </div>
   );
 
-  const renderError = () => (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4 relative z-10">
-      <div className="bg-white p-8 rounded-3xl shadow-xl text-center max-w-xs w-full">
-        <AlertCircle className="w-16 h-16 text-red-500 mb-4 mx-auto" />
-        <h2 className="text-xl font-bold text-gray-800 mb-2">문제가 생겼어요!</h2>
-        <p className="text-gray-600 mb-6 text-sm">
-           {gameMode === 'AI' && !process.env.API_KEY 
-             ? <span>AI 모드는 API 키가 필요합니다.<br/>배포 설정의 환경변수(Environment Variables)에 <b>API_KEY</b>를 추가해주세요.<br/><br/><b>기출 문제 모드</b>는 바로 가능합니다!</span>
-             : <span>일시적인 오류입니다.<br/>잠시 후 다시 시도해주세요.</span>
-           }
-        </p>
-        <div className="flex flex-col gap-3">
-          <button
-            onClick={() => {
-              setGameMode('BASIC');
-              setAppState('MENU');
-            }}
-            className="w-full py-3 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 transition-colors shadow-md flex items-center justify-center gap-2"
-          >
-            <BookOpen className="w-4 h-4" /> 기출 문제로 하기
-          </button>
-          <button
-            onClick={() => setAppState('MENU')}
-            className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors"
-          >
-            홈으로
-          </button>
+  const renderError = () => {
+    const isApiKeyError = gameMode === 'AI' && !getApiKey();
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4 relative z-10">
+        <div className="bg-white p-8 rounded-3xl shadow-xl text-center max-w-sm w-full">
+          <AlertCircle className="w-16 h-16 text-red-500 mb-4 mx-auto" />
+          <h2 className="text-xl font-bold text-gray-800 mb-2">문제가 생겼어요!</h2>
+          <div className="text-gray-600 mb-6 text-sm text-left bg-gray-50 p-4 rounded-xl border border-gray-200">
+             {isApiKeyError ? (
+               <div className="space-y-2">
+                 <p className="font-bold text-red-500">API 키가 확인되지 않습니다.</p>
+                 <p>Vercel이나 Netlify 같은 배포 환경에서는 보안상 <b>API_KEY</b> 변수가 차단될 수 있습니다.</p>
+                 <hr className="border-gray-300"/>
+                 <p className="text-xs">다음 중 하나로 환경변수 이름을 변경해보세요:</p>
+                 <ul className="list-disc list-inside text-xs font-mono bg-white p-2 rounded border border-gray-200 text-blue-600">
+                   <li>NEXT_PUBLIC_API_KEY</li>
+                   <li>VITE_API_KEY</li>
+                   <li>REACT_APP_API_KEY</li>
+                 </ul>
+                 <p className="text-xs mt-1">변경 후 반드시 <b>재배포(Re-deploy)</b>가 필요합니다.</p>
+               </div>
+             ) : (
+               <span>일시적인 오류이거나 인터넷 연결 문제입니다.<br/>잠시 후 다시 시도해주세요.</span>
+             )}
+          </div>
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={() => {
+                setGameMode('BASIC');
+                setAppState('MENU');
+              }}
+              className="w-full py-3 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 transition-colors shadow-md flex items-center justify-center gap-2"
+            >
+              <BookOpen className="w-4 h-4" /> 기출 문제로 하기 (API 불필요)
+            </button>
+            <button
+              onClick={() => setAppState('MENU')}
+              className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors"
+            >
+              설정 화면으로
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderQuiz = () => {
     const question = questions[currentQIndex];
