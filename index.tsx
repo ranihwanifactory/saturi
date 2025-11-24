@@ -24,7 +24,7 @@ import {
 // --- Types ---
 type Region = '경상도' | '전라도' | '충청도' | '강원도' | '제주도';
 type Difficulty = '순한맛' | '중간맛' | '매운맛';
-type GameMode = 'AI' | 'BASIC';
+type GameMode = 'BASIC' | 'AI';
 
 interface Question {
   question: string;
