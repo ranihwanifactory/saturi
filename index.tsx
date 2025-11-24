@@ -343,7 +343,7 @@ const getApiKey = (): string | undefined => {
 const App = () => {
   const [appState, setAppState] = useState<AppState>('MENU');
   const [config, setConfig] = useState<QuizConfig>({ region: '경상도', difficulty: '중간맛' });
-  const [gameMode, setGameMode] = useState<GameMode>('BASIC'); 
+  const [gameMode, setGameMode] = useState<GameMode>('AI'); 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQIndex, setCurrentQIndex] = useState(0);
   const [score, setScore] = useState(0);
