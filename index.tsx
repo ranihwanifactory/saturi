@@ -19,7 +19,8 @@ import {
   BookOpen,
   Bot,
   Download,
-  PlusSquare
+  PlusSquare,
+  Smartphone
 } from "lucide-react";
 
 // --- Types ---
@@ -357,6 +358,7 @@ const App = () => {
   // iOS & PWA States
   const [isIOS, setIsIOS] = useState(false);
   const [showIOSPrompt, setShowIOSPrompt] = useState(false);
+  const [showInstallModal, setShowInstallModal] = useState(false);
 
   const regions: Region[] = ['경상도', '전라도', '충청도', '강원도', '제주도'];
   const difficulties: Difficulty[] = ['순한맛', '중간맛', '매운맛'];
@@ -366,9 +368,22 @@ const App = () => {
     const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
     setIsIOS(ios);
 
+    // Check if running in standalone mode (already installed)
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+
+    if (!isStandalone) {
+      if (ios) {
+         // Auto-show iOS instructions after 2 seconds if not installed
+         const timer = setTimeout(() => setShowIOSPrompt(true), 2000);
+         return () => clearTimeout(timer);
+      }
+    }
+
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
       setInstallPrompt(e);
+      // Automatically show the install modal when the browser is ready
+      setShowInstallModal(true);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -383,14 +398,19 @@ const App = () => {
       installPrompt.userChoice.then((choiceResult: any) => {
         if (choiceResult.outcome === 'accepted') {
           setInstallPrompt(null);
+          setShowInstallModal(false);
         }
       });
     } else if (isIOS) {
       setShowIOSPrompt(true);
     } else {
-      // Fallback for desktop or non-supported browsers
       alert("브라우저 메뉴에서 '홈 화면에 추가' 또는 '앱 설치'를 선택해주세요.");
     }
+  };
+
+  const onInstallClickFromModal = () => {
+      handleInstallClick();
+      setShowInstallModal(false);
   };
 
   const shareApp = async () => {
@@ -637,6 +657,43 @@ const App = () => {
     );
   };
 
+  const renderInstallModal = () => {
+    if (!showInstallModal || !installPrompt) return null;
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in-up">
+            <div className="bg-white p-6 rounded-2xl max-w-sm w-full mx-4 shadow-2xl text-center relative">
+                <button 
+                  onClick={() => setShowInstallModal(false)}
+                  className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+                <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Smartphone className="w-8 h-8 text-green-600" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-800 mb-2">앱을 설치할까요?</h3>
+                <p className="text-gray-600 mb-6 text-sm">
+                  앱을 설치하면 전체 화면으로 더 편하게<br/>사투리 능력고사를 즐길 수 있습니다!
+                </p>
+                <div className="flex gap-3">
+                    <button 
+                      onClick={() => setShowInstallModal(false)} 
+                      className="flex-1 py-3 bg-gray-100 rounded-xl font-bold text-gray-600 hover:bg-gray-200"
+                    >
+                      나중에
+                    </button>
+                    <button 
+                      onClick={onInstallClickFromModal} 
+                      className="flex-1 py-3 bg-green-500 text-white rounded-xl font-bold shadow-lg shadow-green-200 hover:bg-green-600"
+                    >
+                      설치하기
+                    </button>
+                </div>
+            </div>
+        </div>
+    )
+  }
+
   const renderIOSPrompt = () => {
     if (!showIOSPrompt) return null;
     return (
@@ -671,6 +728,7 @@ const App = () => {
     <div className="flex flex-col items-center justify-center min-h-screen p-4 max-w-md mx-auto relative z-10">
       {renderToast()}
       {renderIOSPrompt()}
+      {renderInstallModal()}
       <div className="text-center mb-6 animate-fade-in-down">
         <div className="inline-block p-4 rounded-full bg-green-100 mb-4 shadow-inner ring-4 ring-green-50">
           <MapPin className="w-12 h-12 text-green-600" />
@@ -770,18 +828,16 @@ const App = () => {
         </button>
 
         <div className="flex gap-2 mt-3">
-          {(installPrompt || isIOS) && (
-            <button
-              onClick={handleInstallClick}
-              className="flex-1 py-3 rounded-xl font-bold text-sm bg-green-100 text-green-700 hover:bg-green-200 transition-colors flex items-center justify-center gap-2 border border-green-200"
-            >
-              <Download className="w-4 h-4" />
-              앱 설치
-            </button>
-          )}
+          <button
+            onClick={handleInstallClick}
+            className={`flex-1 py-3 rounded-xl font-bold text-sm hover:bg-green-200 transition-colors flex items-center justify-center gap-2 border border-green-200 ${installPrompt || isIOS ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+          >
+            <Download className="w-4 h-4" />
+            앱 설치
+          </button>
           <button
             onClick={shareApp}
-            className={`flex-1 py-3 rounded-xl font-bold text-sm hover:bg-blue-100 transition-colors flex items-center justify-center gap-2 border border-blue-200 ${installPrompt || isIOS ? 'bg-blue-50 text-blue-700' : 'w-full bg-blue-50 text-blue-700'}`}
+            className={`flex-1 py-3 rounded-xl font-bold text-sm bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors flex items-center justify-center gap-2 border border-blue-200`}
           >
             <Share2 className="w-4 h-4" />
             앱 공유
@@ -795,264 +851,4 @@ const App = () => {
     <div className="flex flex-col items-center justify-center min-h-screen p-4 relative z-10">
       <div className="relative mb-8">
         <div className="absolute inset-0 bg-green-200 rounded-full blur-xl opacity-50 animate-pulse"></div>
-        <Loader2 className="w-16 h-16 text-green-600 animate-spin relative z-10" />
-      </div>
-      <h2 className="text-2xl font-jua text-gray-800 animate-fade-in-up text-center mb-2 min-h-[3rem]">{loadingMessage}</h2>
-      <p className="text-gray-500 text-sm">잠시만 기다려주세요...</p>
-    </div>
-  );
-
-  const renderError = () => {
-    const isApiKeyError = gameMode === 'AI' && !getApiKey();
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4 relative z-10">
-        <div className="bg-white p-8 rounded-3xl shadow-xl text-center max-w-sm w-full">
-          <AlertCircle className="w-16 h-16 text-red-500 mb-4 mx-auto" />
-          <h2 className="text-xl font-bold text-gray-800 mb-2">문제가 생겼어요!</h2>
-          <div className="text-gray-600 mb-6 text-sm text-left bg-gray-50 p-4 rounded-xl border border-gray-200">
-             {isApiKeyError ? (
-               <div className="space-y-2">
-                 <p className="font-bold text-red-500">API 키가 확인되지 않습니다.</p>
-                 <p className="text-xs">배포된 앱(Vercel 등)은 보안상의 이유로 <code>API_KEY</code> 변수를 차단합니다.</p>
-                 <hr className="border-gray-300"/>
-                 <p className="font-bold text-blue-600">해결 방법:</p>
-                 <ol className="list-decimal list-inside text-xs space-y-1">
-                   <li>Vercel 대시보드(Settings)로 이동</li>
-                   <li>변수명을 <b><code>VITE_API_KEY</code></b>로 변경하여 추가</li>
-                   <li><b>Redeploy(재배포)</b> 버튼 클릭 (필수)</li>
-                 </ol>
-               </div>
-             ) : (
-               <div className="space-y-2 text-left">
-                 <p className="font-bold text-red-600">⚠ 오류 상세 내용</p>
-                 <div className="bg-gray-100 p-2 rounded text-xs font-mono break-all text-gray-700 whitespace-pre-wrap">
-                   {lastError || "알 수 없는 오류가 발생했습니다."}
-                 </div>
-                 <p className="text-xs text-gray-500 mt-2">
-                   * 네트워크 상태를 확인하거나 잠시 후 다시 시도해주세요.
-                 </p>
-               </div>
-             )}
-          </div>
-          <div className="flex flex-col gap-3">
-            <button
-              onClick={() => {
-                setGameMode('BASIC');
-                setAppState('MENU');
-              }}
-              className="w-full py-3 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 transition-colors shadow-md flex items-center justify-center gap-2"
-            >
-              <BookOpen className="w-4 h-4" /> 기출 문제로 하기 (API 불필요)
-            </button>
-            <button
-              onClick={() => setAppState('MENU')}
-              className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors"
-            >
-              설정 화면으로
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderQuiz = () => {
-    const question = questions[currentQIndex];
-    return (
-      <div className="min-h-screen flex flex-col p-4 max-w-md mx-auto py-6 relative z-10">
-        {renderFeedbackOverlay()}
-        
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8 bg-white/60 backdrop-blur p-2 rounded-full border border-white/50 shadow-sm">
-          <button 
-            onClick={() => {
-              if(confirm('시험을 중단하고 홈으로 돌아가시겠습니까?')) setAppState('MENU');
-            }}
-            className="p-2 text-gray-400 hover:text-red-500 rounded-full hover:bg-red-50 transition-colors"
-            aria-label="그만두기"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
-          
-          <div className="flex gap-2">
-             {gameMode === 'AI' && (
-              <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-bold flex items-center gap-1">
-                <Sparkles className="w-3 h-3" /> AI
-              </span>
-            )}
-            <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">
-              {config.region}
-            </span>
-            <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-bold">
-              {config.difficulty}
-            </span>
-          </div>
-          
-          <div className="px-3 font-mono font-black text-lg flex items-center">
-            <span className="text-green-600">{currentQIndex + 1}</span>
-            <span className="text-gray-300 text-sm mx-1">/</span>
-            <span className="text-gray-400 text-sm">{questions.length}</span>
-          </div>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="w-full bg-gray-200 h-2 rounded-full mb-8 overflow-hidden">
-          <div 
-            className="bg-green-500 h-full transition-all duration-500 ease-out rounded-full shadow-[0_0_10px_rgba(34,197,94,0.5)]"
-            style={{ width: `${((currentQIndex + 1) / questions.length) * 100}%` }}
-          />
-        </div>
-
-        {/* Question Card */}
-        <div className="bg-white/90 backdrop-blur rounded-3xl p-8 shadow-xl mb-6 min-h-[180px] flex items-center justify-center border border-white/50 relative overflow-hidden animate-fade-in-up">
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-400 via-teal-500 to-blue-500"></div>
-          <h2 className="text-2xl font-bold text-center text-gray-800 leading-relaxed font-jua break-keep">
-            {question.question}
-          </h2>
-        </div>
-
-        {/* Options */}
-        <div className="space-y-3 flex-1">
-          {question.options.map((option, idx) => {
-            let btnClass = "w-full p-4 rounded-xl text-left border-2 font-medium transition-all duration-200 relative overflow-hidden group ";
-            let icon = <div className="w-6 h-6 rounded-full border-2 border-gray-300 group-hover:border-green-400 transition-colors"></div>;
-            
-            if (!isAnswerRevealed) {
-              btnClass += "bg-white border-white hover:border-green-300 hover:bg-green-50 text-gray-700 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-95";
-            } else {
-              if (idx === question.correctAnswerIndex) {
-                btnClass += "bg-green-100 border-green-500 text-green-800 shadow-none ring-2 ring-green-500 ring-offset-2";
-                icon = <CheckCircle2 className="w-6 h-6 text-green-600" />;
-              } else if (idx === selectedAnswer) {
-                btnClass += "bg-red-100 border-red-500 text-red-800 shadow-none opacity-80";
-                icon = <XCircle className="w-6 h-6 text-red-600" />;
-              } else {
-                btnClass += "bg-gray-50 border-transparent text-gray-400 opacity-50";
-              }
-            }
-
-            return (
-              <button
-                key={idx}
-                disabled={isAnswerRevealed}
-                onClick={() => handleAnswer(idx)}
-                className={btnClass}
-              >
-                <div className="flex justify-between items-center relative z-10">
-                  <span className="text-lg">{option}</span>
-                  {icon}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Explanation & Next Button */}
-        {isAnswerRevealed && (
-          <div className="mt-6 animate-fade-in-up">
-            <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100 mb-4 shadow-sm relative overflow-hidden">
-               <div className="absolute top-0 left-0 w-1 h-full bg-blue-400"></div>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded">정답 해설</span>
-              </div>
-              <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-line">
-                {question.explanation}
-              </p>
-            </div>
-            <button
-              onClick={nextQuestion}
-              className="w-full py-4 bg-gray-900 text-white rounded-xl font-bold text-lg shadow-xl hover:bg-gray-800 flex items-center justify-center gap-2 transition-transform active:scale-95"
-            >
-              {currentQIndex < questions.length - 1 ? "다음 문제 도전" : "성적표 확인하기"} <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const renderResult = () => {
-    const title = getRankTitle(score, questions.length);
-    const percentage = (score / questions.length) * 100;
-
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4 max-w-md mx-auto relative z-10 animate-fade-in-down">
-        {renderToast()}
-        <div className="bg-white w-full rounded-3xl shadow-2xl overflow-hidden text-center relative">
-          {/* Top Banner */}
-          <div className={`p-10 ${percentage >= 80 ? 'bg-gradient-to-b from-yellow-300 to-yellow-100' : 'bg-gradient-to-b from-green-300 to-green-100'}`}>
-            <div className="absolute top-4 right-4 opacity-20 animate-pulse">
-              <Trophy className="w-24 h-24" />
-            </div>
-            <Trophy className="w-20 h-20 text-white mx-auto drop-shadow-md mb-4 transform hover:scale-110 transition-transform" />
-            <h2 className="text-4xl font-jua text-gray-900 mb-2 drop-shadow-sm">{title}</h2>
-            <div className="inline-block px-4 py-1 bg-white/50 backdrop-blur rounded-full text-sm font-bold text-gray-700 mt-2">
-              {config.region} • {config.difficulty}
-            </div>
-          </div>
-          
-          <div className="p-8">
-            <div className="flex justify-center items-end gap-2 mb-6">
-              <span className="text-7xl font-black text-gray-900 font-mono tracking-tighter">
-                {score * 20}
-              </span>
-              <span className="text-2xl text-gray-400 font-bold mb-4">점</span>
-            </div>
-
-            <div className="h-4 bg-gray-100 rounded-full overflow-hidden mb-8 shadow-inner relative">
-               <div className="absolute top-0 left-0 w-full h-full bg-gray-200/50"></div>
-              <div 
-                className={`h-full transition-all duration-1000 ease-out rounded-full ${percentage >= 80 ? 'bg-yellow-400' : 'bg-green-500'}`}
-                style={{ width: `${percentage}%` }}
-              />
-            </div>
-            
-            <p className="text-gray-600 mb-8 leading-relaxed font-medium bg-gray-50 p-4 rounded-xl border border-gray-100">
-              {percentage >= 80 
-                ? "와! 진짜 사투리 고수시네요!\n혹시 고향이... 그쪽 아니십니꺼?" 
-                : percentage >= 40 
-                  ? "오 조금 아시네요!\n조금만 더 배우면 현지인 흉내 가능!"
-                  : "아이고, 아직은 좀 어렵지예?\n더 공부하고 오이소!"}
-            </p>
-
-            <div className="flex gap-3">
-              <button
-                onClick={shareResult}
-                className="flex-1 py-4 bg-blue-500 text-white rounded-xl font-bold text-lg shadow-lg hover:bg-blue-600 transition-all flex items-center justify-center gap-2 active:scale-95"
-              >
-                <Share2 className="w-5 h-5" />
-                결과 공유
-              </button>
-              <button
-                onClick={() => setAppState('MENU')}
-                className="flex-1 py-4 bg-gray-100 text-gray-700 rounded-xl font-bold text-lg hover:bg-gray-200 transition-all flex items-center justify-center gap-2 active:scale-95"
-              >
-                <RefreshCw className="w-5 h-5" />
-                다시하기
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <>
-      <div className="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
-        <div className="absolute top-0 left-0 w-96 h-96 bg-yellow-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
-        <div className="absolute top-0 right-0 w-96 h-96 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
-        <div className="absolute -bottom-32 left-20 w-96 h-96 bg-pink-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
-      </div>
-
-      {appState === 'MENU' && renderMenu()}
-      {appState === 'LOADING' && renderLoading()}
-      {appState === 'QUIZ' && renderQuiz()}
-      {appState === 'RESULT' && renderResult()}
-      {appState === 'ERROR' && renderError()}
-    </>
-  );
-};
-
-const root = createRoot(document.getElementById('root')!);
-root.render(<App />);
+        <Loader2 className="w-16 h-16 text-green-60
