@@ -20,7 +20,8 @@ import {
   Bot,
   Download,
   PlusSquare,
-  Smartphone
+  Smartphone,
+  Timer
 } from "lucide-react";
 
 declare global {
@@ -418,6 +419,7 @@ const App = () => {
   const [showToast, setShowToast] = useState(false);
   const [lastError, setLastError] = useState<string>("");
   const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [timeLeft, setTimeLeft] = useState(30);
   
   // iOS & PWA States
   const [isIOS, setIsIOS] = useState(false);
@@ -455,6 +457,19 @@ const App = () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
   }, []);
+
+  // Timer Logic
+  useEffect(() => {
+    if (appState === 'QUIZ' && !isAnswerRevealed) {
+      if (timeLeft > 0) {
+        const timer = setTimeout(() => setTimeLeft(prev => prev - 1), 1000);
+        return () => clearTimeout(timer);
+      } else {
+        // Time Over logic
+        handleAnswer(-1); 
+      }
+    }
+  }, [timeLeft, appState, isAnswerRevealed]);
 
   const handleInstallClick = () => {
     if (installPrompt) {
@@ -543,6 +558,7 @@ const App = () => {
           setSelectedAnswer(null);
           setIsAnswerRevealed(false);
           setFeedback(null);
+          setTimeLeft(30);
           setAppState('QUIZ');
         } catch (e) {
           console.error(e);
@@ -615,6 +631,7 @@ const App = () => {
         setSelectedAnswer(null);
         setIsAnswerRevealed(false);
         setFeedback(null);
+        setTimeLeft(30);
         setAppState('QUIZ');
       } else {
         throw new Error("No data returned from AI");
@@ -640,6 +657,7 @@ const App = () => {
     if (isAnswerRevealed) return;
     
     setSelectedAnswer(index);
+    // If index is -1 (timeout), it is treated as wrong.
     const isCorrect = index === questions[currentQIndex].correctAnswerIndex;
     
     setFeedback(isCorrect ? 'CORRECT' : 'WRONG');
@@ -658,6 +676,7 @@ const App = () => {
       setCurrentQIndex(prev => prev + 1);
       setSelectedAnswer(null);
       setIsAnswerRevealed(false);
+      setTimeLeft(30);
     } else {
       setAppState('RESULT');
     }
@@ -704,6 +723,7 @@ const App = () => {
 
   const renderFeedbackOverlay = () => {
     if (!feedback) return null;
+    const isTimeout = selectedAnswer === -1;
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none bg-black/10 backdrop-blur-[2px]">
         <div className={`transform transition-all duration-300 ${feedback === 'CORRECT' ? 'scale-100' : 'scale-100'}`}>
@@ -712,8 +732,9 @@ const App = () => {
                <CheckCircle2 className="w-32 h-32 text-green-500" />
              </div>
           ) : (
-            <div className="bg-white rounded-full p-4 shadow-2xl animate-pop">
-              <XCircle className="w-32 h-32 text-red-500" />
+            <div className="bg-white rounded-3xl p-6 shadow-2xl animate-pop flex flex-col items-center gap-2">
+              <XCircle className="w-24 h-24 text-red-500" />
+              {isTimeout && <span className="text-red-500 font-bold text-xl font-jua animate-shake">시간 초과!</span>}
             </div>
           )}
         </div>
@@ -985,7 +1006,7 @@ const App = () => {
         {renderFeedbackOverlay()}
         
         {/* Header */}
-        <div className="flex justify-between items-center mb-8 bg-white/70 backdrop-blur p-2 rounded-full border border-white/50 shadow-sm">
+        <div className="flex justify-between items-center mb-4 bg-white/70 backdrop-blur p-2 rounded-full border border-white/50 shadow-sm">
           <button 
             onClick={() => {
               if(confirm('시험을 중단하고 홈으로 돌아가시겠습니까?')) setAppState('MENU');
@@ -1018,11 +1039,27 @@ const App = () => {
         </div>
 
         {/* Progress Bar */}
-        <div className="w-full bg-gray-200/50 h-2 rounded-full mb-8 overflow-hidden backdrop-blur-sm">
+        <div className="w-full bg-gray-200/50 h-2 rounded-full mb-4 overflow-hidden backdrop-blur-sm">
           <div 
             className="bg-green-500 h-full transition-all duration-500 ease-out rounded-full shadow-[0_0_10px_rgba(34,197,94,0.5)]"
             style={{ width: `${((currentQIndex + 1) / questions.length) * 100}%` }}
           />
+        </div>
+
+        {/* Timer Bar */}
+        <div className="flex items-center gap-3 mb-6 bg-white/60 backdrop-blur p-2 rounded-xl">
+          <Timer className={`w-5 h-5 ${timeLeft <= 5 ? 'text-red-500 animate-pulse' : 'text-gray-500'}`} />
+          <div className="flex-1 h-2 bg-gray-200/50 rounded-full overflow-hidden">
+            <div 
+              className={`h-full transition-all duration-1000 ease-linear rounded-full ${
+                timeLeft <= 5 ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' : timeLeft <= 10 ? 'bg-orange-500' : 'bg-blue-500'
+              }`}
+              style={{ width: `${(timeLeft / 30) * 100}%` }}
+            />
+          </div>
+          <span className={`font-mono font-bold text-sm w-8 text-right ${timeLeft <= 5 ? 'text-red-600 animate-pulse' : 'text-gray-600'}`}>
+            {timeLeft}s
+          </span>
         </div>
 
         {/* Question Card */}
