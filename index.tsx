@@ -23,6 +23,12 @@ import {
   Smartphone
 } from "lucide-react";
 
+declare global {
+  interface Window {
+    kakao: any;
+  }
+}
+
 // --- Types ---
 type Region = '경상도' | '전라도' | '충청도' | '강원도' | '제주도';
 type Difficulty = '순한맛' | '중간맛' | '매운맛';
@@ -339,6 +345,64 @@ const getApiKey = (): string | undefined => {
 };
 
 // --- Components ---
+
+const BackgroundMap = ({ region }: { region: Region }) => {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstance = useRef<any>(null);
+  
+  // Coordinates mapping - Center points of each province
+  const REGION_COORDS: Record<Region, { lat: number, lng: number, level: number }> = {
+    '경상도': { lat: 35.566, lng: 128.566, level: 11 }, // Around Daegu/Changnyeong
+    '전라도': { lat: 35.159, lng: 126.852, level: 11 }, // Around Gwangju
+    '충청도': { lat: 36.635, lng: 127.491, level: 11 }, // Around Cheongju/Daejeon
+    '강원도': { lat: 37.600, lng: 128.500, level: 11 }, // Pyeongchang area
+    '제주도': { lat: 33.361, lng: 126.529, level: 10 }, // Hallasan center
+  };
+
+  useEffect(() => {
+    // Retry mechanism if kakao is not loaded yet (though script in head should be fast enough)
+    const initMap = () => {
+        if (window.kakao && window.kakao.maps && mapRef.current) {
+            const startRegion = REGION_COORDS[region];
+            const options = {
+                center: new window.kakao.maps.LatLng(startRegion.lat, startRegion.lng),
+                level: startRegion.level
+            };
+            const map = new window.kakao.maps.Map(mapRef.current, options);
+            
+            // Disable interactions for background feel
+            map.setZoomable(false);
+            map.setDraggable(false);
+            
+            mapInstance.current = map;
+        } else {
+            setTimeout(initMap, 200);
+        }
+    };
+
+    initMap();
+  }, []); // Run once on mount
+
+  useEffect(() => {
+    if (mapInstance.current && window.kakao) {
+        const target = REGION_COORDS[region];
+        const moveLatLon = new window.kakao.maps.LatLng(target.lat, target.lng);
+        
+        // Smooth pan
+        mapInstance.current.panTo(moveLatLon);
+        // Optionally adjust zoom level if they differ significantly
+        // mapInstance.current.setLevel(target.level);
+    }
+  }, [region]);
+
+  return (
+    <div className="fixed inset-0 w-full h-full -z-20 pointer-events-none">
+        <div ref={mapRef} className="w-full h-full opacity-50 transition-opacity duration-1000 ease-in-out" /> 
+        {/* Overlay to make text readable */}
+        <div className="absolute inset-0 bg-white/40 backdrop-blur-[2px] -z-10" />
+    </div>
+  );
+};
 
 const App = () => {
   const [appState, setAppState] = useState<AppState>('MENU');
@@ -730,14 +794,14 @@ const App = () => {
       {renderIOSPrompt()}
       {renderInstallModal()}
       <div className="text-center mb-6 animate-fade-in-down">
-        <div className="inline-block p-4 rounded-full bg-green-100 mb-4 shadow-inner ring-4 ring-green-50">
+        <div className="inline-block p-4 rounded-full bg-green-100/90 mb-4 shadow-inner ring-4 ring-green-50">
           <MapPin className="w-12 h-12 text-green-600" />
         </div>
-        <h1 className="text-5xl font-jua text-gray-800 mb-2 tracking-wide drop-shadow-sm leading-tight">전국 사투리<br/><span className="text-green-600">능력고사</span></h1>
-        <p className="text-gray-500 font-medium bg-white/50 inline-block px-4 py-1 rounded-full">니 사투리 쫌 치나?</p>
+        <h1 className="text-5xl font-jua text-gray-800 mb-2 tracking-wide drop-shadow-sm leading-tight text-shadow-sm">전국 사투리<br/><span className="text-green-600">능력고사</span></h1>
+        <p className="text-gray-600 font-medium bg-white/70 backdrop-blur inline-block px-4 py-1 rounded-full shadow-sm">니 사투리 쫌 치나?</p>
       </div>
 
-      <div className="w-full space-y-6 bg-white/90 backdrop-blur-md p-6 rounded-3xl shadow-xl border border-white/50">
+      <div className="w-full space-y-6 bg-white/80 backdrop-blur-md p-6 rounded-3xl shadow-xl border border-white/50">
         
         {/* Game Mode Selection */}
         <div className="space-y-3">
@@ -750,7 +814,7 @@ const App = () => {
               className={`p-3 rounded-xl text-sm font-bold transition-all duration-200 flex flex-col items-center gap-1 ${
                 gameMode === 'BASIC'
                   ? 'bg-blue-500 text-white shadow-lg shadow-blue-200 ring-2 ring-blue-500 ring-offset-2'
-                  : 'bg-white text-gray-500 hover:bg-blue-50 border border-gray-100'
+                  : 'bg-white/90 text-gray-500 hover:bg-blue-50 border border-gray-100'
               }`}
             >
               <span className="flex items-center gap-1"><BookOpen className="w-4 h-4" /> 기출 문제</span>
@@ -761,7 +825,7 @@ const App = () => {
               className={`p-3 rounded-xl text-sm font-bold transition-all duration-200 flex flex-col items-center gap-1 ${
                 gameMode === 'AI'
                   ? 'bg-purple-500 text-white shadow-lg shadow-purple-200 ring-2 ring-purple-500 ring-offset-2'
-                  : 'bg-white text-gray-500 hover:bg-purple-50 border border-gray-100'
+                  : 'bg-white/90 text-gray-500 hover:bg-purple-50 border border-gray-100'
               }`}
             >
               <span className="flex items-center gap-1"><Bot className="w-4 h-4" /> AI 생성</span>
@@ -782,7 +846,7 @@ const App = () => {
                 className={`p-3 rounded-xl text-sm font-bold transition-all duration-200 ${
                   config.region === r 
                     ? 'bg-green-500 text-white shadow-lg shadow-green-200 transform scale-105 ring-2 ring-green-500 ring-offset-2' 
-                    : 'bg-white text-gray-500 hover:bg-green-50 border border-gray-100'
+                    : 'bg-white/90 text-gray-500 hover:bg-green-50 border border-gray-100'
                 }`}
               >
                 {r}
@@ -803,7 +867,7 @@ const App = () => {
                 className={`p-3 rounded-xl text-sm font-bold transition-all duration-200 ${
                   config.difficulty === d 
                     ? 'bg-orange-500 text-white shadow-lg shadow-orange-200 transform scale-105 ring-2 ring-orange-500 ring-offset-2' 
-                    : 'bg-white text-gray-500 hover:bg-orange-50 border border-gray-100'
+                    : 'bg-white/90 text-gray-500 hover:bg-orange-50 border border-gray-100'
                 }`}
               >
                 {d}
@@ -830,14 +894,14 @@ const App = () => {
         <div className="flex gap-2 mt-3">
           <button
             onClick={handleInstallClick}
-            className={`flex-1 py-3 rounded-xl font-bold text-sm hover:bg-green-200 transition-colors flex items-center justify-center gap-2 border border-green-200 ${installPrompt || isIOS ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+            className={`flex-1 py-3 rounded-xl font-bold text-sm hover:bg-green-200 transition-colors flex items-center justify-center gap-2 border border-green-200/50 ${installPrompt || isIOS ? 'bg-green-100/90 text-green-700' : 'bg-gray-100/50 text-gray-400 cursor-not-allowed'}`}
           >
             <Download className="w-4 h-4" />
             앱 설치
           </button>
           <button
             onClick={shareApp}
-            className={`flex-1 py-3 rounded-xl font-bold text-sm bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors flex items-center justify-center gap-2 border border-blue-200`}
+            className={`flex-1 py-3 rounded-xl font-bold text-sm bg-blue-50/90 text-blue-700 hover:bg-blue-100 transition-colors flex items-center justify-center gap-2 border border-blue-200/50`}
           >
             <Share2 className="w-4 h-4" />
             앱 공유
@@ -853,8 +917,10 @@ const App = () => {
         <div className="absolute inset-0 bg-green-200 rounded-full blur-xl opacity-50 animate-pulse"></div>
         <Loader2 className="w-16 h-16 text-green-600 animate-spin relative z-10" />
       </div>
-      <h2 className="text-2xl font-jua text-gray-800 animate-fade-in-up text-center mb-2 min-h-[3rem]">{loadingMessage}</h2>
-      <p className="text-gray-500 text-sm">잠시만 기다려주세요...</p>
+      <div className="bg-white/80 backdrop-blur px-6 py-4 rounded-2xl shadow-lg">
+        <h2 className="text-2xl font-jua text-gray-800 animate-fade-in-up text-center mb-2 min-h-[3rem]">{loadingMessage}</h2>
+        <p className="text-gray-500 text-sm text-center">잠시만 기다려주세요...</p>
+      </div>
     </div>
   );
 
@@ -919,12 +985,12 @@ const App = () => {
         {renderFeedbackOverlay()}
         
         {/* Header */}
-        <div className="flex justify-between items-center mb-8 bg-white/60 backdrop-blur p-2 rounded-full border border-white/50 shadow-sm">
+        <div className="flex justify-between items-center mb-8 bg-white/70 backdrop-blur p-2 rounded-full border border-white/50 shadow-sm">
           <button 
             onClick={() => {
               if(confirm('시험을 중단하고 홈으로 돌아가시겠습니까?')) setAppState('MENU');
             }}
-            className="p-2 text-gray-400 hover:text-red-500 rounded-full hover:bg-red-50 transition-colors"
+            className="p-2 text-gray-500 hover:text-red-500 rounded-full hover:bg-red-50 transition-colors"
             aria-label="그만두기"
           >
             <LogOut className="w-5 h-5" />
@@ -932,27 +998,27 @@ const App = () => {
           
           <div className="flex gap-2">
              {gameMode === 'AI' && (
-              <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-bold flex items-center gap-1">
+              <span className="px-2 py-1 bg-purple-100/90 text-purple-700 rounded-full text-xs font-bold flex items-center gap-1">
                 <Sparkles className="w-3 h-3" /> AI
               </span>
             )}
-            <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">
+            <span className="px-3 py-1 bg-green-100/90 text-green-700 rounded-full text-xs font-bold">
               {config.region}
             </span>
-            <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-bold">
+            <span className="px-3 py-1 bg-orange-100/90 text-orange-700 rounded-full text-xs font-bold">
               {config.difficulty}
             </span>
           </div>
           
           <div className="px-3 font-mono font-black text-lg flex items-center">
-            <span className="text-green-600">{currentQIndex + 1}</span>
-            <span className="text-gray-300 text-sm mx-1">/</span>
-            <span className="text-gray-400 text-sm">{questions.length}</span>
+            <span className="text-green-700">{currentQIndex + 1}</span>
+            <span className="text-gray-400 text-sm mx-1">/</span>
+            <span className="text-gray-500 text-sm">{questions.length}</span>
           </div>
         </div>
 
         {/* Progress Bar */}
-        <div className="w-full bg-gray-200 h-2 rounded-full mb-8 overflow-hidden">
+        <div className="w-full bg-gray-200/50 h-2 rounded-full mb-8 overflow-hidden backdrop-blur-sm">
           <div 
             className="bg-green-500 h-full transition-all duration-500 ease-out rounded-full shadow-[0_0_10px_rgba(34,197,94,0.5)]"
             style={{ width: `${((currentQIndex + 1) / questions.length) * 100}%` }}
@@ -960,7 +1026,7 @@ const App = () => {
         </div>
 
         {/* Question Card */}
-        <div className="bg-white/90 backdrop-blur rounded-3xl p-8 shadow-xl mb-6 min-h-[180px] flex items-center justify-center border border-white/50 relative overflow-hidden animate-fade-in-up">
+        <div className="bg-white/80 backdrop-blur rounded-3xl p-8 shadow-xl mb-6 min-h-[180px] flex items-center justify-center border border-white/50 relative overflow-hidden animate-fade-in-up">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-400 via-teal-500 to-blue-500"></div>
           <h2 className="text-2xl font-bold text-center text-gray-800 leading-relaxed font-jua break-keep">
             {question.question}
@@ -974,16 +1040,16 @@ const App = () => {
             let icon = <div className="w-6 h-6 rounded-full border-2 border-gray-300 group-hover:border-green-400 transition-colors"></div>;
             
             if (!isAnswerRevealed) {
-              btnClass += "bg-white border-white hover:border-green-300 hover:bg-green-50 text-gray-700 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-95";
+              btnClass += "bg-white/90 border-white/50 hover:border-green-300 hover:bg-green-50/90 text-gray-700 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-95";
             } else {
               if (idx === question.correctAnswerIndex) {
-                btnClass += "bg-green-100 border-green-500 text-green-800 shadow-none ring-2 ring-green-500 ring-offset-2";
+                btnClass += "bg-green-100/90 border-green-500 text-green-800 shadow-none ring-2 ring-green-500 ring-offset-2";
                 icon = <CheckCircle2 className="w-6 h-6 text-green-600" />;
               } else if (idx === selectedAnswer) {
-                btnClass += "bg-red-100 border-red-500 text-red-800 shadow-none opacity-80";
+                btnClass += "bg-red-100/90 border-red-500 text-red-800 shadow-none opacity-80";
                 icon = <XCircle className="w-6 h-6 text-red-600" />;
               } else {
-                btnClass += "bg-gray-50 border-transparent text-gray-400 opacity-50";
+                btnClass += "bg-gray-50/50 border-transparent text-gray-400 opacity-50";
               }
             }
 
@@ -1006,7 +1072,7 @@ const App = () => {
         {/* Explanation & Next Button */}
         {isAnswerRevealed && (
           <div className="mt-6 animate-fade-in-up">
-            <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100 mb-4 shadow-sm relative overflow-hidden">
+            <div className="bg-blue-50/90 backdrop-blur p-5 rounded-2xl border border-blue-100 mb-4 shadow-sm relative overflow-hidden">
                <div className="absolute top-0 left-0 w-1 h-full bg-blue-400"></div>
               <div className="flex items-center gap-2 mb-2">
                 <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded">정답 해설</span>
@@ -1034,7 +1100,7 @@ const App = () => {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4 max-w-md mx-auto relative z-10 animate-fade-in-down">
         {renderToast()}
-        <div className="bg-white w-full rounded-3xl shadow-2xl overflow-hidden text-center relative">
+        <div className="bg-white/95 backdrop-blur w-full rounded-3xl shadow-2xl overflow-hidden text-center relative">
           {/* Top Banner */}
           <div className={`p-10 ${percentage >= 80 ? 'bg-gradient-to-b from-yellow-300 to-yellow-100' : 'bg-gradient-to-b from-green-300 to-green-100'}`}>
             <div className="absolute top-4 right-4 opacity-20 animate-pulse">
@@ -1095,12 +1161,7 @@ const App = () => {
 
   return (
     <>
-      <div className="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
-        <div className="absolute top-0 left-0 w-96 h-96 bg-yellow-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
-        <div className="absolute top-0 right-0 w-96 h-96 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
-        <div className="absolute -bottom-32 left-20 w-96 h-96 bg-pink-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
-      </div>
-
+      <BackgroundMap region={config.region} />
       {appState === 'MENU' && renderMenu()}
       {appState === 'LOADING' && renderLoading()}
       {appState === 'QUIZ' && renderQuiz()}
