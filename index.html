@@ -1,77 +1,58 @@
 <!DOCTYPE html>
 <html lang="ko">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>전국 사투리 능력고사</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          animation: {
-            'fade-in-down': 'fadeInDown 0.5s ease-out',
-            'fade-in-up': 'fadeInUp 0.5s ease-out',
-            'blob': 'blob 7s infinite',
-            'pop': 'pop 0.3s ease-out',
-            'shake': 'shake 0.4s cubic-bezier(.36,.07,.19,.97) both',
-          },
-          keyframes: {
-            fadeInDown: {
-              '0%': { opacity: '0', transform: 'translateY(-20px)' },
-              '100%': { opacity: '1', transform: 'translateY(0)' },
-            },
-            fadeInUp: {
-              '0%': { opacity: '0', transform: 'translateY(20px)' },
-              '100%': { opacity: '1', transform: 'translateY(0)' },
-            },
-            blob: {
-              '0%': { transform: 'translate(0px, 0px) scale(1)' },
-              '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
-              '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
-              '100%': { transform: 'translate(0px, 0px) scale(1)' },
-            },
-            pop: {
-              '0%': { transform: 'scale(0.8)', opacity: '0' },
-              '100%': { transform: 'scale(1)', opacity: '1' },
-            },
-            shake: {
-              '10%, 90%': { transform: 'translate3d(-1px, 0, 0)' },
-              '20%, 80%': { transform: 'translate3d(2px, 0, 0)' },
-              '30%, 50%, 70%': { transform: 'translate3d(-4px, 0, 0)' },
-              '40%, 60%': { transform: 'translate3d(4px, 0, 0)' }
-            }
-          }
-        }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>마음이음 - 가족 상담 AI</title>
+    <meta name="description" content="가족 관계의 고민을 나누고 해결책을 찾는 따뜻한 AI 상담소, 마음이음입니다." />
+    
+    <!-- PWA configuration -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#0d9488" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="마음이음" />
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2913/2913584.png" />
+
+    <!-- Open Graph for sharing -->
+    <meta property="og:title" content="마음이음 - 가족 상담 AI" />
+    <meta property="og:description" content="가족 관계 갈등, 마음이음에서 털어놓으세요." />
+    <meta property="og:image" content="https://cdn-icons-png.flaticon.com/512/2913/2913584.png" />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Noto Sans KR', sans-serif;
       }
-    }
-  </script>
-  <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
-  <style>
-    body {
-      font-family: 'Noto Sans KR', sans-serif;
-      background-color: #f0fdf4;
-    }
-    .font-jua {
-      font-family: 'Jua', sans-serif;
-    }
-  </style>
-<script type="importmap">
+      /* Custom scrollbar for webkit */
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background-color: #cbd5e1;
+        border-radius: 20px;
+      }
+    </style>
+  <script type="importmap">
 {
   "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "react": "https://aistudiocdn.com/react@^19.2.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
     "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/"
+    "react-markdown": "https://aistudiocdn.com/react-markdown@^10.1.0"
   }
 }
 </script>
 <link rel="stylesheet" href="/index.css">
 </head>
-<body>
-  <div id="root"></div>
-  <script type="module" src="index.tsx"></script>
-<script type="module" src="/index.tsx"></script>
+  <body class="bg-slate-50 text-slate-900 h-screen overflow-hidden">
+    <div id="root" class="h-full w-full"></div>
+  <script type="module" src="/index.tsx"></script>
 </body>
 </html>

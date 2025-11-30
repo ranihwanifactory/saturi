@@ -1,5 +1,5 @@
 {
-  "description": "한국의 지역별 사투리 능력고사 앱. Gemini API를 활용하여 무한한 퀴즈를 생성합니다.",
-  "requestFramePermissions": [],
-  "name": "SaturiGame"
+  "name": "HeartLink (마음이음) - Family Counseling AI",
+  "description": "A compassionate AI chatbot specialized in family relationship counseling, offering empathy, conflict resolution strategies, and a safe space to talk.",
+  "requestFramePermissions": []
 }
