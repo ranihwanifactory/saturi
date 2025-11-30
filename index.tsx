@@ -18,7 +18,8 @@ import {
   Copy,
   BookOpen,
   Bot,
-  Download
+  Download,
+  PlusSquare
 } from "lucide-react";
 
 // --- Types ---
@@ -308,7 +309,7 @@ const getStaticQuestions = (region: Region, difficulty: Difficulty): Question[] 
 // --- API Key Helper for Client-Side Deployments ---
 const getApiKey = (): string | undefined => {
   try {
-    // Priority 1: Modern Vite/Framework Prefixes (Most Vercel deployments use these)
+    // Priority 1: Modern Vite/Framework Prefixes
     // @ts-ignore
     if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_KEY) {
       // @ts-ignore
@@ -320,19 +321,16 @@ const getApiKey = (): string | undefined => {
     if (typeof process !== 'undefined' && process.env?.REACT_APP_API_KEY) {
       return process.env.REACT_APP_API_KEY.trim();
     }
-
-    // Priority 2: Direct Keys (If manually configured in some bundlers)
+    // Priority 2: Direct Keys
     if (typeof process !== 'undefined' && process.env?.API_KEY) {
       return process.env.API_KEY.trim();
     }
-    
     // Fallbacks
     // @ts-ignore
     if (typeof import.meta !== 'undefined' && import.meta.env?.API_KEY) {
       // @ts-ignore
       return import.meta.env.API_KEY.trim();
     }
-
   } catch (e) {
     console.warn("Failed to read environment variables", e);
   }
@@ -344,7 +342,7 @@ const getApiKey = (): string | undefined => {
 const App = () => {
   const [appState, setAppState] = useState<AppState>('MENU');
   const [config, setConfig] = useState<QuizConfig>({ region: '경상도', difficulty: '중간맛' });
-  const [gameMode, setGameMode] = useState<GameMode>('AI'); // Default changed to AI
+  const [gameMode, setGameMode] = useState<GameMode>('AI'); 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQIndex, setCurrentQIndex] = useState(0);
   const [score, setScore] = useState(0);
@@ -355,31 +353,44 @@ const App = () => {
   const [showToast, setShowToast] = useState(false);
   const [lastError, setLastError] = useState<string>("");
   const [installPrompt, setInstallPrompt] = useState<any>(null);
+  
+  // iOS & PWA States
+  const [isIOS, setIsIOS] = useState(false);
+  const [showIOSPrompt, setShowIOSPrompt] = useState(false);
 
   const regions: Region[] = ['경상도', '전라도', '충청도', '강원도', '제주도'];
   const difficulties: Difficulty[] = ['순한맛', '중간맛', '매운맛'];
 
   useEffect(() => {
+    // Check for iOS
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    setIsIOS(ios);
+
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
       setInstallPrompt(e);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
   }, []);
 
   const handleInstallClick = () => {
-    if (!installPrompt) return;
-    installPrompt.prompt();
-    installPrompt.userChoice.then((choiceResult: any) => {
-      if (choiceResult.outcome === 'accepted') {
-        setInstallPrompt(null);
-      }
-    });
+    if (installPrompt) {
+      installPrompt.prompt();
+      installPrompt.userChoice.then((choiceResult: any) => {
+        if (choiceResult.outcome === 'accepted') {
+          setInstallPrompt(null);
+        }
+      });
+    } else if (isIOS) {
+      setShowIOSPrompt(true);
+    } else {
+      // Fallback for desktop or non-supported browsers
+      alert("브라우저 메뉴에서 '홈 화면에 추가' 또는 '앱 설치'를 선택해주세요.");
+    }
   };
 
   const shareApp = async () => {
@@ -529,7 +540,6 @@ const App = () => {
       console.error("Error generating quiz:", error);
       let msg = error.message || String(error);
       
-      // Friendly messages for common API errors
       if (msg.includes("400")) msg = "잘못된 요청입니다 (400). API 키 형식을 확인해주세요.\n(Google AI Studio에서 발급받은 키인지 확인)";
       else if (msg.includes("403")) msg = "권한이 없습니다 (403). API 키가 유효하지 않거나 삭제되었을 수 있습니다.";
       else if (msg.includes("429")) msg = "사용량이 초과되었습니다 (429). 잠시 후 다시 시도해주세요.";
@@ -627,9 +637,40 @@ const App = () => {
     );
   };
 
+  const renderIOSPrompt = () => {
+    if (!showIOSPrompt) return null;
+    return (
+      <div className="fixed inset-0 z-50 flex items-end justify-center pb-8 bg-black/60 backdrop-blur-sm animate-fade-in-up" onClick={() => setShowIOSPrompt(false)}>
+        <div className="bg-white p-6 rounded-2xl max-w-sm w-full mx-4 shadow-2xl text-center relative" onClick={e => e.stopPropagation()}>
+           <button onClick={() => setShowIOSPrompt(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+             <XCircle className="w-6 h-6" />
+           </button>
+           <h3 className="text-lg font-bold text-gray-800 mb-2">홈 화면에 추가하기</h3>
+           <p className="text-gray-600 text-sm mb-4">
+             앱을 설치하면 전체 화면으로 더 편하게 즐길 수 있어요!
+           </p>
+           <div className="space-y-3 text-left bg-gray-50 p-4 rounded-xl">
+             <div className="flex items-center gap-3">
+               <Share2 className="w-5 h-5 text-blue-500" />
+               <span className="text-sm">1. 브라우저 하단의 <b>공유 버튼</b>을 누르세요.</span>
+             </div>
+             <div className="flex items-center gap-3">
+               <PlusSquare className="w-5 h-5 text-gray-700" />
+               <span className="text-sm">2. <b>'홈 화면에 추가'</b>를 찾아 선택하세요.</span>
+             </div>
+           </div>
+           <div className="mt-4 animate-bounce">
+             <span className="text-xs text-gray-400">▼ 아래쪽을 확인해보세요!</span>
+           </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderMenu = () => (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 max-w-md mx-auto relative z-10">
       {renderToast()}
+      {renderIOSPrompt()}
       <div className="text-center mb-6 animate-fade-in-down">
         <div className="inline-block p-4 rounded-full bg-green-100 mb-4 shadow-inner ring-4 ring-green-50">
           <MapPin className="w-12 h-12 text-green-600" />
@@ -729,7 +770,7 @@ const App = () => {
         </button>
 
         <div className="flex gap-2 mt-3">
-          {installPrompt && (
+          {(installPrompt || isIOS) && (
             <button
               onClick={handleInstallClick}
               className="flex-1 py-3 rounded-xl font-bold text-sm bg-green-100 text-green-700 hover:bg-green-200 transition-colors flex items-center justify-center gap-2 border border-green-200"
@@ -740,7 +781,7 @@ const App = () => {
           )}
           <button
             onClick={shareApp}
-            className={`flex-1 py-3 rounded-xl font-bold text-sm hover:bg-blue-100 transition-colors flex items-center justify-center gap-2 border border-blue-200 ${installPrompt ? 'bg-blue-50 text-blue-700' : 'w-full bg-blue-50 text-blue-700'}`}
+            className={`flex-1 py-3 rounded-xl font-bold text-sm hover:bg-blue-100 transition-colors flex items-center justify-center gap-2 border border-blue-200 ${installPrompt || isIOS ? 'bg-blue-50 text-blue-700' : 'w-full bg-blue-50 text-blue-700'}`}
           >
             <Share2 className="w-4 h-4" />
             앱 공유

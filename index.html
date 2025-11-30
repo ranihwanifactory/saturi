@@ -12,7 +12,7 @@
   <meta property="og:type" content="website">
   <meta property="og:title" content="전국 사투리 능력고사">
   <meta property="og:description" content="니 사투리 쫌 치나? AI가 출제하는 무한 사투리 퀴즈! 지금 도전해보세요.">
-  <meta property="og:image" content="https://cdn-icons-png.flaticon.com/512/10605/10605996.png">
+  <meta property="og:image" content="https://cdn-icons-png.flaticon.com/512/5556/5556367.png">
   <meta property="og:site_name" content="전국 사투리 능력고사">
   <meta property="og:locale" content="ko_KR">
 
@@ -20,13 +20,13 @@
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="전국 사투리 능력고사">
   <meta name="twitter:description" content="니 사투리 쫌 치나? AI가 출제하는 무한 사투리 퀴즈! 지금 도전해보세요.">
-  <meta name="twitter:image" content="https://cdn-icons-png.flaticon.com/512/10605/10605996.png">
+  <meta name="twitter:image" content="https://cdn-icons-png.flaticon.com/512/5556/5556367.png">
 
   <!-- iOS & Home Screen Icons -->
-  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/10605/10605996.png">
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/5556/5556367.png">
   
   <!-- Manifest for PWA installation -->
-  <link rel="manifest" href="data:application/manifest+json;base64,eyJuYW1lIjoi7KCE6rWtIOyCrO2WqeumrCDriqXroKXqs6DsSaQiLCJzaG9ydF9uYW1lIjoi7KCr7Lqr6rOg7IKsIiwic3RhcnRfdXJsIjoiLiIsImRpc3BsYXkiOiJzdGFuZGFsb25lIiwiYmFja2dyb3VuZF9jb2xvciI6IiNmMGZkZjQiLCJ0aGVtZV9jb2xvciI6IiMyMmM1NWUiLCJpY29ucyI6W3sic3JjIjoiaHR0cHM6Ly9jZG4taWNvbnXMcG5nLmZsYXRpY29uLmNvbS81MTIvMTA2MDUvMTA2MDU5OTYucG5nIiwic2l6ZXMiOiI1MTJ4NTEyIiwidHlwZSI6ImltYWdlL3BuZyJ9XX0=">
+  <link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22%EC%A0%84%EA%B5%AD%20%EC%82%AC%ED%88%AC%EB%A6%AC%20%EB%8A%A5%EB%A0%A5%EA%B3%A0%EC%82%AC%22%2C%22short_name%22%3A%22%EC%82%AC%ED%88%AC%EB%A6%AC%EA%B3%A0%EC%82%AC%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23f0fdf4%22%2C%22theme_color%22%3A%22%2322c55e%22%2C%22orientation%22%3A%22portrait%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fcdn-icons-png.flaticon.com%2F512%2F5556%2F5556367.png%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fpng%22%7D%5D%7D">
   
   <title>전국 사투리 능력고사</title>
   <script src="https://cdn.tailwindcss.com"></script>
@@ -98,6 +98,27 @@
 <body>
   <div id="root"></div>
   <script type="module" src="index.tsx"></script>
+  <script>
+    // Simple Service Worker Registration to satisfy PWA criteria
+    if ('serviceWorker' in navigator) {
+      const swContent = `
+        self.addEventListener('install', (e) => {
+          self.skipWaiting();
+        });
+        self.addEventListener('activate', (e) => {
+          e.waitUntil(self.clients.claim());
+        });
+        self.addEventListener('fetch', (e) => {
+          // Pass through
+        });
+      `;
+      const blob = new Blob([swContent], {type: 'text/javascript'});
+      const url = URL.createObjectURL(blob);
+      navigator.serviceWorker.register(url)
+        .then(() => console.log('SW registered'))
+        .catch(() => console.log('SW failed'));
+    }
+  </script>
 <script type="module" src="/index.tsx"></script>
 </body>
 </html>
